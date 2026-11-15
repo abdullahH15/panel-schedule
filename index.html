@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>جدول الأحمال التفاعلي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a working sheet — settings, then the verdict strip, then the load library feeding the schedule grid. Copper accent = the conductor. */
+:root{
+  --bg:#f2f4f5; --surface:#ffffff; --surface-2:#eef1f3; --ink:#15212a; --muted:#5b6a75; --line:#d5dce1;
+  --accent:#b1592a; --accent-ink:#ffffff; --accent-soft:#f6e6da;
+  --good:#1d7548; --good-soft:#e1f1e8; --warn:#9a6300; --warn-soft:#fbefd6; --crit:#b3261e; --crit-soft:#f8e0dd; --info:#2a5b87; --info-soft:#e2ecf5;
+  --l1:#8a5634; --l2:#1b1b1d; --l3:#8d949b;
+  --font-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --radius:10px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1418; --surface:#151e24; --surface-2:#1b262e; --ink:#e4ebef; --muted:#94a4af; --line:#2b3842;
+    --accent:#e08b55; --accent-ink:#1b0f07; --accent-soft:#3a2516;
+    --good:#61c393; --good-soft:#14301f; --warn:#e2b04c; --warn-soft:#382a0c; --crit:#f2867c; --crit-soft:#3e1714; --info:#86b5e0; --info-soft:#13293c;
+    --l1:#c98a62; --l2:#e4ebef; --l3:#9aa3ab; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --surface:#151e24; --surface-2:#1b262e; --ink:#e4ebef; --muted:#94a4af; --line:#2b3842;
+  --accent:#e08b55; --accent-ink:#1b0f07; --accent-soft:#3a2516;
+  --good:#61c393; --good-soft:#14301f; --warn:#e2b04c; --warn-soft:#382a0c; --crit:#f2867c; --crit-soft:#3e1714; --info:#86b5e0; --info-soft:#13293c;
+  --l1:#c98a62; --l2:#e4ebef; --l3:#9aa3ab; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:14px; line-height:1.55}
+.num,.mono{font-family:var(--font-num); font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0; text-wrap:balance; line-height:1.3}
+h1{font-size:22px; font-weight:700}
+h2{font-size:16px; font-weight:700}
+h3{font-size:13px; font-weight:600; color:var(--muted)}
+a{color:var(--accent)}
+button,select,input{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important; animation:none!important}}
+
+.wrap{max-width:1480px; margin:0 auto; padding:16px; display:grid; gap:16px}
+.topbar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.brand{display:flex; flex-direction:column; gap:2px}
+.brand p{margin:0; color:var(--muted); font-size:13px}
+.actions{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.btn{display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:13px; font-weight:500; white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.sm{height:28px; padding:0 9px; font-size:12px}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+.menu{position:relative}
+.menu > summary{list-style:none}
+.menu > summary::-webkit-details-marker{display:none}
+.menu-pop{position:absolute; inset-inline-end:0; top:40px; z-index:30; min-width:240px; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; display:grid; gap:2px}
+.menu-pop button{all:unset; cursor:pointer; padding:8px 10px; border-radius:6px; font-size:13px; display:flex; justify-content:space-between; gap:12px}
+.menu-pop button:hover,.menu-pop button:focus-visible{background:var(--surface-2)}
+.menu-pop button[disabled]{opacity:.45; cursor:not-allowed}
+.menu-pop small{color:var(--muted)}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; display:grid; gap:12px; align-content:start}
+.card-head{display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px}
+.card-head p{margin:0; color:var(--muted); font-size:12.5px}
+.grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+@media (max-width:980px){.grid2{grid-template-columns:1fr}}
+.fields{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px 12px}
+.field{display:grid; gap:4px; align-content:start}
+.field label{font-size:12px; color:var(--muted); font-weight:500}
+.field input,.field select{height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:0 10px; min-width:0}
+.field input[type=number]{font-family:var(--font-num)}
+.field.wide{grid-column:span 2}
+.check{display:flex; align-items:center; gap:8px; font-size:13px}
+.check input{width:16px; height:16px; accent-color:var(--accent)}
+.subhead{font-size:12px; font-weight:600; color:var(--ink); padding-top:4px; border-top:1px dashed var(--line); grid-column:1/-1; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap}
+.subhead span{color:var(--muted); font-weight:500}
+.banner{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-radius:var(--radius); background:var(--accent-soft); border:1px solid color-mix(in srgb,var(--accent) 35%,transparent); font-size:13px}
+.banner[hidden]{display:none}
+
+/* Summary */
+.kpis{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px}
+.kpi{border:1px solid var(--line); border-radius:9px; padding:10px 12px; display:grid; gap:2px; background:var(--surface)}
+.kpi .k{font-size:12px; color:var(--muted)}
+.kpi .v{font-size:20px; font-weight:600; font-family:var(--font-num); font-variant-numeric:tabular-nums; direction:ltr; text-align:right}
+.kpi .v small{font-size:12px; color:var(--muted); font-weight:500}
+.kpi .s{font-size:12px; color:var(--muted)}
+.kpi.main{border-color:var(--accent); background:var(--accent-soft)}
+.pill{display:inline-flex; align-items:center; gap:4px; padding:1px 8px; border-radius:999px; font-size:11.5px; font-weight:600}
+.pill.good{background:var(--good-soft); color:var(--good)} .pill.warn{background:var(--warn-soft); color:var(--warn)} .pill.crit{background:var(--crit-soft); color:var(--crit)} .pill.info{background:var(--info-soft); color:var(--info)}
+.sumgrid{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:16px}
+@media (max-width:980px){.sumgrid{grid-template-columns:1fr}}
+.phases{display:grid; gap:10px; align-content:start}
+bdi{white-space:nowrap}
+.ph-row{display:grid; grid-template-columns:44px minmax(0,1fr) 200px; align-items:center; gap:10px}
+.ph-tag{display:flex; align-items:center; gap:6px; font-weight:600; font-family:var(--font-num)}
+.dot{width:10px; height:10px; border-radius:50%; display:inline-block; flex:none}
+.dot.L1{background:var(--l1)} .dot.L2{background:var(--l2)} .dot.L3{background:var(--l3)} .dot.P3{background:conic-gradient(var(--l1) 0 33%,var(--l2) 0 66%,var(--l3) 0)}
+.bar{position:relative; height:14px; background:var(--surface-2); border-radius:7px; overflow:hidden}
+.bar i{position:absolute; inset-block:0; inset-inline-start:0; border-radius:7px}
+.bar .conn{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.bar .dem{background:var(--accent)}
+.ph-val{font-family:var(--font-num); font-size:12.5px; direction:ltr; text-align:right; color:var(--muted)}
+.ph-val b{color:var(--ink); font-weight:600}
+.legend{display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--muted)}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.sw{width:14px; height:8px; border-radius:4px; display:inline-block}
+.warns{display:grid; gap:6px; max-height:280px; overflow:auto; padding-inline-end:2px}
+.w{display:grid; grid-template-columns:4px minmax(0,1fr); gap:10px; padding:8px 10px; border-radius:8px; background:var(--surface-2); font-size:13px}
+.w::before{content:""; border-radius:2px}
+.w.crit::before{background:var(--crit)} .w.warn::before{background:var(--warn)} .w.info::before{background:var(--info)} .w.good::before{background:var(--good)}
+
+/* Library */
+.lib-tools{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{height:30px; padding:0 12px; border-radius:999px; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:12.5px}
+.chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.chip.rec{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.search{height:32px; border:1px solid var(--line); border-radius:8px; padding:0 10px; background:var(--surface); min-width:220px; flex:1 1 220px; max-width:340px}
+.items{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px; max-height:236px; overflow:auto; padding:2px}
+.item{all:unset; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface)}
+.item:hover,.item:focus-visible{border-color:var(--accent); background:var(--accent-soft)}
+.item .n{font-size:13px; font-weight:500}
+.item .m{font-size:11.5px; color:var(--muted); font-family:var(--font-num); direction:ltr; text-align:right}
+.item .add{grid-row:span 2; align-self:center; font-size:18px; color:var(--accent); font-weight:600}
+
+/* Schedule table */
+.tbl-tools{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between}
+.tbl-tools .g{display:flex; flex-wrap:wrap; gap:8px}
+.tbl-wrap{overflow:auto; border:1px solid var(--line); border-radius:var(--radius); max-height:70vh; background:var(--surface)}
+table.sched{border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:12.5px}
+.sched th,.sched td{border-bottom:1px solid var(--line); padding:5px 6px; vertical-align:middle; background:var(--surface); white-space:nowrap}
+.sched thead th{position:sticky; top:0; z-index:3; background:var(--surface-2); font-weight:600; font-size:11.5px; color:var(--muted); text-align:center; border-bottom:1px solid var(--line)}
+.sched thead th.grp{top:0}
+.sched td.c0,.sched th.c0{position:sticky; right:0; z-index:2; min-width:72px}
+.sched td.c1,.sched th.c1{position:sticky; right:72px; z-index:2; min-width:230px; border-inline-end:1px solid var(--line)}
+.sched thead th.c0,.sched thead th.c1{z-index:4}
+.sched tbody tr:hover td{background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.sched input,.sched select{height:28px; border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:0 6px; font-size:12.5px; min-width:0}
+.sched input[type=number]{font-family:var(--font-num); width:66px; direction:ltr; text-align:right}
+.sched input.desc{width:220px}
+.sched input.w44{width:62px}
+.sched select{padding:0 4px}
+.sched input[type=checkbox]{width:16px; height:16px; accent-color:var(--accent)}
+.sched .n{font-family:var(--font-num); font-variant-numeric:tabular-nums; text-align:left; direction:ltr}
+.sched .sub{display:block; font-size:10.5px; color:var(--muted); font-family:var(--font-num); direction:ltr; text-align:right; margin-top:2px}
+.sched td.cct{font-family:var(--font-num); font-weight:600}
+.cct-in{display:flex; align-items:center; gap:6px}
+.sched .ph1{color:var(--l1)} .sched .ph2{color:var(--l2)} .sched .ph3{color:var(--l3)}
+.sched td.phc{color:var(--muted)}
+.sched td.phc.on{color:var(--ink); font-weight:600}
+.sched tr.spare td{background:var(--surface-2)}
+.sched tr.spare input.desc{background:transparent}
+.sched tr.mode-fire td.c1, .sched tr.mode-standby td.c1{box-shadow:inset -3px 0 0 var(--info)}
+.vd{display:inline-block; min-width:52px; text-align:center; padding:1px 6px; border-radius:6px; font-family:var(--font-num); font-weight:600}
+.vd.ok{background:var(--good-soft); color:var(--good)} .vd.bad{background:var(--crit-soft); color:var(--crit)} .vd.na{color:var(--muted)}
+.rowact{display:flex; gap:2px}
+.icon{all:unset; cursor:pointer; width:24px; height:24px; display:grid; place-items:center; border-radius:6px; color:var(--muted); font-size:13px}
+.icon:hover,.icon:focus-visible{background:var(--surface-2); color:var(--ink)}
+.icon.del:hover{color:var(--crit)}
+.flag{color:var(--crit); font-weight:700}
+.sched tfoot td{background:var(--surface-2); font-weight:600; border-top:1px solid var(--line)}
+.sched tfoot td.lbl{text-align:right}
+.empty{padding:28px; text-align:center; color:var(--muted)}
+
+/* Breakdown */
+table.plain{border-collapse:collapse; width:100%; font-size:13px}
+.plain th,.plain td{padding:7px 8px; border-bottom:1px solid var(--line); text-align:right}
+.plain th{font-size:12px; color:var(--muted); font-weight:600}
+.plain td.n{font-family:var(--font-num); font-variant-numeric:tabular-nums; direction:ltr; text-align:left}
+.minibar{height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden; min-width:80px}
+.minibar i{display:block; height:100%; background:var(--accent)}
+.dfgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px 12px}
+.dfgrid .field{grid-template-columns:minmax(0,1fr) 76px; align-items:center}
+.dfgrid input{height:30px; border:1px solid var(--line); border-radius:6px; padding:0 8px; font-family:var(--font-num); background:var(--surface); direction:ltr; text-align:right}
+.notes{font-size:12.5px; color:var(--muted); display:grid; gap:6px}
+.notes p{margin:0; max-width:110ch}
+
+/* Modal + toast */
+.modal{position:fixed; inset:0; background:rgba(10,14,18,.45); display:grid; place-items:center; z-index:50; padding:16px}
+.modal[hidden]{display:none}
+.dialog{background:var(--surface); border:1px solid var(--line); border-radius:12px; width:min(620px,100%); max-height:80vh; overflow:auto; padding:18px; display:grid; gap:12px}
+.dialog .foot{display:flex; justify-content:flex-start; gap:8px; flex-wrap:wrap}
+.saved{display:grid; gap:6px}
+.saved-item{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:8px}
+.saved-item .t{font-weight:600}
+.saved-item .d{font-size:12px; color:var(--muted)}
+.toast{position:fixed; bottom:16px; inset-inline-start:16px; z-index:60; background:var(--ink); color:var(--bg); padding:10px 14px; border-radius:8px; font-size:13px; max-width:420px; box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.toast[hidden]{display:none}
+.muted{color:var(--muted)}
+.ltr{direction:ltr; unicode-bidi:isolate}
+textarea.json{width:100%; min-height:160px; font-family:var(--font-num); font-size:12px; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--surface-2); color:var(--ink); direction:ltr}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>جدول الأحمال التفاعلي</h1>
+      <p>Panel Schedule — اختيار القواطع والكابلات القياسية تلقائياً على أساس SBC 401 / IEC 60364-5-52</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-new" type="button">لوحة جديدة</button>
+      <button class="btn" id="btn-save" type="button">حفظ اللوحة</button>
+      <button class="btn" id="btn-open" type="button">لوحاتي</button>
+      <details class="menu" id="menu-export">
+        <summary class="btn primary" role="button">تصدير</summary>
+        <div class="menu-pop" role="menu">
+          <button type="button" role="menuitem" id="ex-xlsx">ملف Excel <small>.xlsx</small></button>
+          <button type="button" role="menuitem" id="ex-print">ورقة طباعة <small>.html</small></button>
+          <button type="button" role="menuitem" id="ex-csv">جدول CSV <small>.csv</small></button>
+          <button type="button" role="menuitem" id="ex-json">نسخة احتياطية <small>.json</small></button>
+          <button type="button" role="menuitem" id="ex-copy">نسخ الجدول للصق في Excel</button>
+          <button type="button" role="menuitem" id="ex-import">استيراد لوحة من ملف JSON</button>
+        </div>
+      </details>
+      <input type="file" id="file-import" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="banner" id="example-banner">
+    <span>تعرض الأداة مثالاً جاهزاً: لوحة دور مكاتب <b>DB-1F</b> من المرجع (400 m²، 6 وحدات تكييف). عدّل عليه أو ابدأ لوحة جديدة.</span>
+    <button class="btn sm" type="button" id="btn-hide-banner">إخفاء</button>
+  </div>
+
+  <section class="grid2" aria-label="الإعدادات">
+    <div class="card">
+      <div class="card-head"><h2>بيانات اللوحة والمشروع</h2><p>نوع المشروع يحدد معاملات الطلب والأحمال المقترحة</p></div>
+      <div class="fields">
+        <div class="field wide"><label for="m-project">اسم المشروع</label><input id="m-project" data-s="meta.project" type="text"></div>
+        <div class="field"><label for="s-project">نوع المشروع</label><select id="s-project" data-s="settings.project"></select></div>
+        <div class="field"><label for="m-tag">رمز اللوحة</label><input id="m-tag" data-s="meta.tag" type="text"></div>
+        <div class="field"><label for="m-fed">مغذاة من</label><input id="m-fed" data-s="meta.fedFrom" type="text"></div>
+        <div class="field"><label for="m-loc">الموقع</label><input id="m-loc" data-s="meta.location" type="text"></div>
+        <div class="field"><label for="s-system">النظام</label>
+          <select id="s-system" data-s="settings.system">
+            <option value="3P">3φ 4W + PE · 400/230V · 60Hz</option>
+            <option value="380">3φ 4W + PE · 380/220V (شبكة قديمة)</option>
+            <option value="1P">1φ 2W + PE · 230V</option>
+          </select></div>
+        <div class="field"><label for="s-ways" id="ways-label">حجم اللوحة (مخارج TPN)</label><select id="s-ways" data-s="settings.ways" data-type="num"></select></div>
+        <div class="field"><label for="s-spare">احتياطي السعة %</label><input id="s-spare" data-s="settings.spare" data-type="num" type="number" min="0" max="100" step="5"></div>
+        <div class="field"><label for="s-spareways">مخارج فارغة مطلوبة %</label><input id="s-spareways" data-s="settings.spareWays" data-type="num" type="number" min="0" max="100" step="5"></div>
+        <div class="field"><label for="s-main">القاطع الرئيسي</label><select id="s-main" data-s="settings.mainOverride"></select></div>
+        <div class="field"><label for="s-isc">تيار القصر عند اللوحة kA</label><input id="s-isc" data-s="settings.isc" data-type="num" type="number" min="0" step="0.5"></div>
+        <div class="field"><label for="s-icu">سعة قطع القواطع Icu kA</label><input id="s-icu" data-s="settings.icu" data-type="num" type="number" min="0" step="0.5"></div>
+        <label class="check field wide" for="s-nec"><input id="s-nec" type="checkbox" data-s="settings.nec125" data-type="bool"> تطبيق 125% على الأحمال المستمرة (ممارسة NEC أو مواصفات العميل)</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>ظروف التركيب والحدود</h2><p>تحدد مقاطع الكابلات بعد التصحيح</p></div>
+      <div class="fields">
+        <div class="subhead">الدوائر النهائية <span id="cf-final" class="mono"></span></div>
+        <div class="field wide"><label for="f-method">طريقة التمديد</label><select id="f-method" data-s="settings.final.method"></select></div>
+        <div class="field"><label for="f-ins">العزل</label><select id="f-ins" data-s="settings.final.ins"><option value="PVC">PVC — 70°C</option><option value="XLPE">XLPE — 90°C</option></select></div>
+        <div class="field"><label for="f-amb" id="f-amb-l">حرارة المحيط °C</label><input id="f-amb" data-s="settings.final.amb" data-type="num" type="number" step="5" min="10" max="60"></div>
+        <div class="field"><label for="f-group">دوائر متجمعة معاً</label><input id="f-group" data-s="settings.final.group" data-type="num" type="number" min="1" max="20" step="1"></div>
+        <div class="field"><label for="f-min">أصغر مقطع mm²</label><select id="f-min" data-s="settings.minSize" data-type="num"><option value="1.5">1.5</option><option value="2.5">2.5</option><option value="4">4</option></select></div>
+        <label class="check field wide" for="f-dist"><input id="f-dist" type="checkbox" data-s="settings.distributed" data-type="bool"> حمل الإنارة والمقابس موزع على طول الدائرة (هبوط الجهد على نصف الطول)</label>
+
+        <div class="subhead">كابل تغذية اللوحة <span id="cf-feeder" class="mono"></span></div>
+        <div class="field wide"><label for="d-method">طريقة التمديد</label><select id="d-method" data-s="settings.feeder.method"></select></div>
+        <div class="field"><label for="d-ins">العزل</label><select id="d-ins" data-s="settings.feeder.ins"><option value="PVC">PVC — 70°C</option><option value="XLPE">XLPE — 90°C</option></select></div>
+        <div class="field"><label for="d-amb" id="d-amb-l">حرارة المحيط °C</label><input id="d-amb" data-s="settings.feeder.amb" data-type="num" type="number" step="5" min="10" max="60"></div>
+        <div class="field"><label for="d-group">كابلات متجمعة معاً</label><input id="d-group" data-s="settings.feeder.group" data-type="num" type="number" min="1" max="9" step="1"></div>
+        <div class="field"><label for="d-len">طول المغذي m</label><input id="d-len" data-s="settings.feeder.len" data-type="num" type="number" min="0" step="5"></div>
+        <div class="field"><label for="d-cable">مقطع المغذي</label><select id="d-cable" data-s="settings.feeder.override"></select></div>
+        <div class="field"><label for="d-soil">مقاومة التربة K·m/W</label><input id="d-soil" data-s="settings.feeder.soil" data-type="num" type="number" min="0.5" max="3" step="0.5"></div>
+
+        <div class="subhead">الحدود</div>
+        <div class="field"><label for="l-supply">مصدر التغذية</label><select id="l-supply" data-s="settings.supply"><option value="public">شبكة SEC للجهد المنخفض</option><option value="private">محول خاص بالمشروع</option></select></div>
+        <div class="field"><label for="l-vdl">هبوط جهد الإنارة %</label><input id="l-vdl" data-s="settings.vdLight" data-type="num" type="number" min="1" max="10" step="0.5"></div>
+        <div class="field"><label for="l-vdo">هبوط جهد الأحمال الأخرى %</label><input id="l-vdo" data-s="settings.vdOther" data-type="num" type="number" min="1" max="10" step="0.5"></div>
+        <div class="field"><label for="l-vdf">حد هبوط المغذي %</label><input id="l-vdf" data-s="settings.feederVd" data-type="num" type="number" min="0.5" max="5" step="0.5"></div>
+        <div class="field"><label for="l-imb">حد عدم الاتزان %</label><input id="l-imb" data-s="settings.imbLimit" data-type="num" type="number" min="1" max="30" step="1"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="sum-h">
+    <div class="card-head"><h2 id="sum-h">ملخص اللوحة <span id="sum-tag" class="muted"></span></h2><p id="sum-basis"></p></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="sumgrid">
+      <div class="phases">
+        <h3>توزيع الأحمال على الأطوار</h3>
+        <div id="phase-bars" class="phases"></div>
+        <div class="legend"><span><i class="sw" style="background:var(--accent)"></i>الحمل المطلوب</span><span><i class="sw" style="background:color-mix(in srgb,var(--accent) 22%,transparent)"></i>الحمل الموصول</span><span><i class="dot L1"></i>L1 بني</span><span><i class="dot L2"></i>L2 أسود</span><span><i class="dot L3"></i>L3 رمادي</span><span>(IEC 60445)</span></div>
+      </div>
+      <div class="phases">
+        <h3>ملاحظات التحقق</h3>
+        <div class="warns" id="warns"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="lib-h">
+    <div class="card-head"><h2 id="lib-h">مكتبة الأحمال</h2><p>اضغط على أي حمل لإضافته دائرةً جديدة على الطور الأخف. القيم نموذجية، عدّلها من بيانات المعدة المعتمدة.</p></div>
+    <div class="lib-tools">
+      <input class="search" id="lib-search" type="search" placeholder="ابحث: سبليت، مضخة، كشاف…" aria-label="بحث في المكتبة">
+      <div class="chips" id="lib-chips" role="toolbar" aria-label="فئات الأحمال"></div>
+    </div>
+    <div class="items" id="lib-items"></div>
+  </section>
+
+  <section class="card" aria-labelledby="tbl-h">
+    <div class="tbl-tools">
+      <div><h2 id="tbl-h">جدول الأحمال</h2></div>
+      <div class="g">
+        <button class="btn" type="button" id="btn-balance">موازنة الأطوار تلقائياً</button>
+        <button class="btn" type="button" id="btn-custom">إضافة حمل مخصص</button>
+        <button class="btn" type="button" id="btn-sp1">+ احتياطي أحادي</button>
+        <button class="btn" type="button" id="btn-sp3">+ احتياطي ثلاثي</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="sched" id="sched">
+        <thead>
+          <tr>
+            <th class="c0">الدائرة</th><th class="c1">الوصف</th><th>الفئة</th><th>العدد</th><th>القدرة للوحدة</th><th>PF</th><th>η / EER</th><th>الأطوار</th><th>الطور</th>
+            <th>VA الكلي</th><th><span class="ph1">●</span> L1</th><th><span class="ph2">●</span> L2</th><th><span class="ph3">●</span> L3</th><th>Ib A</th>
+            <th>القاطع</th><th>المنحنى</th><th>RCD</th><th>الطول m</th><th>الكابل</th><th>ΔV % كلي</th><th>التشغيل</th><th>DF</th><th>الطلب VA</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="sched-body"></tbody>
+        <tfoot id="sched-foot"></tfoot>
+      </table>
+    </div>
+    <p class="muted" style="margin:0;font-size:12px">ΔV % كلي = هبوط المغذي حتى اللوحة + هبوط الدائرة. القاطع التلقائي ≥ Ib (× 1.25 للمحركات والتكييف والشواحن)، والكابل أصغر مقطع يحقق In ≤ Iz بعد التصحيح وحد هبوط الجهد. الدوائر المظللة بخط أزرق احتياطية أو تعمل في وضع الحريق فقط.</p>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <div class="card-head"><h2>الأحمال حسب الفئة</h2><p>المساهمة في الحمل المطلوب</p></div>
+      <div style="overflow-x:auto"><table class="plain" id="cat-table"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>معاملات الطلب DF</h2><button class="btn sm" type="button" id="btn-df-reset">إعادة قيم نوع المشروع</button></div>
+      <p class="muted" style="margin:0;font-size:12.5px">قيم استرشادية لنوع المشروع، يعتمدها الاستشاري. SBC 401 يسمح بالتباين دون جدول ثابت. المصاعد تُحسب تلقائياً: أكبر مصعد 1، الثاني 0.75، الباقي 0.6. اترك الخانة فارغة لاستخدام القيمة الافتراضية، أو أدخل DF لكل دائرة في الجدول.</p>
+      <div class="dfgrid" id="df-grid"></div>
+    </div>
+  </section>
+
+  <section class="card notes" aria-label="الأساس والملاحظات">
+    <h2 style="color:var(--ink)">أساس الحساب</h2>
+    <p>قدرات الكابلات النحاسية ومعاملات تصحيح الحرارة والتجميع والتربة من IEC 60364-5-52:2009 (الملحق B)، ومطابَقة مع الجداول B.52.2 وB.52.4 وB.52.5 وB.52.12 وB.52.14 حتى B.52.19. لم تتوفر للمطابقة الجداول B.52.3 (XLPE بموصلين محملين) وB.52.10 (PVC على حامل كابلات)؛ وفي طريقة D2 تُستخدم قيم الثلاثة موصلات لكابلات XLPE الأحادية الطور، وهي أكثر تحفظاً. هبوط الجهد حسب الملحق G بمقاومية 1.25 × مقاومية 20°C ومفاعلة 0.08 mΩ/m، والحدود الافتراضية 3% للإنارة و5% لغيرها من شبكة الجهد المنخفض، و6% و8% من محول خاص. ظروف SEC المرجعية: 40°C داخل المباني غير المكيفة، 55°C للهواء الخارجي، 40°C للتربة، ومقاومة تربة 2.0 K·m/W.</p>
+    <p>القواطع من التدرج القياسي (IEC 60898 / 60947-2): MCB حتى 63A، وMCCB حتى 1600A، وACB فوقها. الموصل الأرضي حسب IEC 60364-5-54: نفس المقطع حتى 16 mm²، و16 mm² حتى 35، ثم نصف المقطع.</p>
+    <p>ما يجب أن تراجعه بنفسك: قيم MCA وMOCP من لوحة وحدات التكييف المعتمدة، تيار البدء للمحركات الكبيرة، سعة القطع والتمييز من دراسة تيار القصر، وكتالوج الكابل الفعلي إذا اختلف عن جداول IEC. الأداة لا تحسب كابلات الألمنيوم.</p>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <div class="foot" id="modal-foot"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ===== Panel Schedule engine — IEC 60364-5-52 / SBC 401 basis ===== */
+const ENG = (() => {
+  const SIZES = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 95, 120, 150, 185, 240, 300];
+  // Copper conductor DC resistance at 20°C (Ω/km), IEC 60228 class 2
+  const R20 = [12.1, 7.41, 4.61, 3.08, 1.83, 1.15, 0.727, 0.524, 0.387, 0.268, 0.193, 0.153, 0.124, 0.0991, 0.0754, 0.0601];
+  const X_KM = 0.08;
+  // Current-carrying capacity, copper, IEC 60364-5-52 Annex B (A). [method][insulation][loaded conductors]
+  const AMP = {
+    B1: { PVC: { 2: [17.5, 24, 32, 41, 57, 76, 101, 125, 151, 192, 232, 269, 300, 341, 400, 458], 3: [15.5, 21, 28, 36, 50, 68, 89, 110, 134, 171, 207, 239, 262, 296, 346, 394] },
+          XLPE: { 2: [23, 31, 42, 54, 75, 100, 133, 164, 198, 253, 306, 354], 3: [20, 28, 37, 48, 66, 88, 117, 144, 175, 222, 269, 312, 342, 384, 450, 514] } },
+    B2: { PVC: { 2: [16.5, 23, 30, 38, 52, 69, 90, 111, 133, 168, 201, 232, 258, 294, 344, 394], 3: [15, 20, 27, 34, 46, 62, 80, 99, 118, 149, 179, 206, 225, 255, 297, 339] },
+          XLPE: { 2: [22, 30, 40, 51, 69, 91, 119, 146, 175, 221, 265, 305], 3: [19.5, 26, 35, 44, 60, 80, 105, 128, 154, 194, 233, 268, 300, 340, 398, 455] } },
+    C:  { PVC: { 2: [19.5, 27, 36, 46, 63, 85, 112, 138, 168, 213, 258, 299, 344, 392, 461, 530], 3: [17.5, 24, 32, 41, 57, 76, 96, 119, 144, 184, 223, 259, 299, 341, 403, 464] },
+          XLPE: { 2: [24, 33, 45, 58, 80, 107, 138, 171, 209, 269, 328, 382, 441, 506, 599, 693], 3: [22, 30, 40, 52, 71, 96, 119, 147, 179, 229, 278, 322, 371, 424, 500, 576] } },
+    E:  { PVC: { 2: [22, 30, 40, 51, 70, 94, 119, 148, 180, 232, 282, 328, 379, 434, 514, 593], 3: [18.5, 25, 34, 43, 60, 80, 101, 126, 153, 196, 238, 276, 319, 364, 430, 497] },
+          XLPE: { 2: [26, 36, 49, 63, 86, 115, 149, 185, 225, 289, 352, 410, 473, 542, 641, 741], 3: [23, 32, 42, 54, 75, 100, 127, 158, 192, 246, 298, 346, 399, 456, 538, 621] } },
+    D:  { PVC: { 2: [22, 29, 37, 46, 60, 78, 99, 119, 140, 173, 204, 231, 261, 292, 336, 379], 3: [18, 24, 30, 38, 50, 64, 82, 98, 116, 143, 169, 192, 217, 243, 280, 316] },
+          XLPE: { 2: [25, 33, 43, 53, 71, 91, 116, 139, 164, 203, 239, 271, 306, 343, 395, 446], 3: [21, 28, 36, 44, 58, 75, 96, 115, 135, 167, 197, 223, 251, 281, 324, 365] } },
+    // D2: direct in ground. XLPE 2-loaded not in the verified extract: the 3-loaded column is used (conservative).
+    D2: { PVC: { 2: [22, 28, 38, 48, 64, 83, 110, 132, 156, 192, 230, 261, 293, 331, 382, 427], 3: [19, 24, 33, 41, 54, 70, 92, 110, 130, 162, 193, 220, 246, 278, 320, 359] },
+          XLPE: { 2: [23, 30, 39, 49, 65, 84, 107, 129, 153, 188, 226, 257, 287, 324, 375, 419], 3: [23, 30, 39, 49, 65, 84, 107, 129, 153, 188, 226, 257, 287, 324, 375, 419] } }
+  };
+  const METHODS = {
+    B1: 'B1 — موصلات مفردة في ماسورة على/داخل الجدار',
+    B2: 'B2 — كابل متعدد الأقطاب في ماسورة أو مجرى',
+    C:  'C — كابل مثبت مباشرة على الجدار',
+    E:  'E — كابل متعدد الأقطاب على حامل كابلات مثقّب',
+    D:  'D1 — كابل في مواسير مدفونة في الأرض',
+    D2: 'D2 — كابل مدفون مباشرة في الأرض'
+  };
+  // Ambient correction: air ref 30°C (B.52.14), ground ref 20°C (B.52.15). [PVC, XLPE]
+  const T_AIR = { 10: [1.22, 1.15], 15: [1.17, 1.12], 20: [1.12, 1.08], 25: [1.06, 1.04], 30: [1, 1], 35: [0.94, 0.96], 40: [0.87, 0.91], 45: [0.79, 0.87], 50: [0.71, 0.82], 55: [0.61, 0.76], 60: [0.50, 0.71] };
+  const T_GND = { 10: [1.10, 1.07], 15: [1.05, 1.04], 20: [1, 1], 25: [0.95, 0.96], 30: [0.89, 0.93], 35: [0.84, 0.89], 40: [0.77, 0.85], 45: [0.71, 0.80], 50: [0.63, 0.76], 55: [0.55, 0.71], 60: [0.45, 0.65] };
+  // Grouping factors (B.52.17 / B.52.19)
+  const G_BUNCH = { 1: 1, 2: 0.8, 3: 0.7, 4: 0.65, 5: 0.6, 6: 0.57, 7: 0.54, 8: 0.52, 9: 0.5, 12: 0.45, 16: 0.41, 20: 0.38 };
+  const G_WALL = { 1: 1, 2: 0.85, 3: 0.79, 4: 0.75, 5: 0.73, 6: 0.72, 7: 0.72, 8: 0.71, 9: 0.7 };
+  const G_TRAY = { 1: 1, 2: 0.88, 3: 0.82, 4: 0.77, 5: 0.75, 6: 0.73, 7: 0.73, 8: 0.72, 9: 0.72 };
+  const G_DUCT = { 1: 1, 2: 0.85, 3: 0.75, 4: 0.7, 5: 0.65, 6: 0.6, 7: 0.57, 8: 0.54, 9: 0.52, 10: 0.49, 11: 0.47, 12: 0.45, 13: 0.44, 14: 0.42, 15: 0.41, 16: 0.39, 17: 0.38, 18: 0.37, 19: 0.35, 20: 0.34 }; // B.52.19 ducts touching
+  const G_DIRECT = { 1: 1, 2: 0.75, 3: 0.65, 4: 0.6, 5: 0.55, 6: 0.5, 7: 0.45, 8: 0.43, 9: 0.41, 12: 0.36, 16: 0.32, 20: 0.29 }; // B.52.18 cables touching
+  const SOIL = { 0.5: 1.28, 0.7: 1.2, 1: 1.18, 1.5: 1.1, 2: 1.05, 2.5: 1, 3: 0.96 }; // B.52.16 buried ducts
+  const SOIL_DIRECT = { 0.5: 1.88, 0.7: 1.62, 1: 1.5, 1.5: 1.28, 2: 1.12, 2.5: 1, 3: 0.9 }; // B.52.16 direct buried
+
+  const BRK = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 320, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000];
+  const BUS = [63, 100, 125, 160, 200, 250, 400, 630, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000];
+
+  const CATS = {
+    LT: { ar: 'إنارة', cont: true, curve: 'C', rcd: false, minIn: 10, vd: 'light' },
+    SK: { ar: 'مقابس عامة', cont: false, curve: 'C', rcd: true, minIn: 20, vd: 'other' },
+    DS: { ar: 'مقابس مخصصة وأجهزة', cont: false, curve: 'C', rcd: true, minIn: 16, vd: 'other' },
+    KT: { ar: 'مطابخ', cont: false, curve: 'C', rcd: true, minIn: 16, vd: 'other' },
+    WH: { ar: 'سخانات مياه', cont: true, curve: 'C', rcd: true, minIn: 16, vd: 'other' },
+    AC: { ar: 'تكييف وتهوية', cont: true, curve: 'C', rcd: false, minIn: 16, motor: true, vd: 'other' },
+    MT: { ar: 'مضخات ومحركات', cont: true, curve: 'D', rcd: false, minIn: 10, motor: true, vd: 'other' },
+    LF: { ar: 'مصاعد', cont: false, curve: 'D', rcd: false, minIn: 16, motor: true, vd: 'other' },
+    IT: { ar: 'تقنية معلومات وUPS', cont: true, curve: 'C', rcd: false, minIn: 16, vd: 'other' },
+    EV: { ar: 'شواحن سيارات', cont: true, curve: 'C', rcd: true, minIn: 16, k125: true, vd: 'other' },
+    SL: { ar: 'ملاعب وإنارة رياضية', cont: true, curve: 'C', rcd: false, minIn: 10, vd: 'light' },
+    IN: { ar: 'بنية تحتية', cont: true, curve: 'C', rcd: false, minIn: 10, vd: 'light' },
+    FS: { ar: 'سلامة وحريق', cont: false, curve: 'D', rcd: false, minIn: 10, motor: true, vd: 'other' },
+    SP: { ar: 'احتياطي', cont: false, curve: 'C', rcd: false, minIn: 20, vd: 'other' }
+  };
+
+  const PROJECTS = {
+    off:    { ar: 'مكاتب ومبانٍ إدارية', df: { LT: 1, SK: 0.5, DS: 0.7, KT: 0.7, WH: 1, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'DS', 'AC', 'IT', 'WH', 'MT', 'LF', 'FS'] },
+    res:    { ar: 'سكني (فلل وشقق)', df: { LT: 0.9, SK: 0.5, DS: 0.6, KT: 0.6, WH: 0.5, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'DS', 'KT', 'WH', 'AC', 'MT', 'LF', 'EV'] },
+    retail: { ar: 'تجاري ومراكز تسوق', df: { LT: 1, SK: 0.5, DS: 0.7, KT: 0.7, WH: 0.8, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'DS', 'KT', 'AC', 'MT', 'LF', 'EV', 'FS'] },
+    mosque: { ar: 'مساجد', df: { LT: 1, SK: 0.3, DS: 0.6, KT: 0.6, WH: 0.7, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'AC', 'WH', 'DS', 'MT', 'IT'] },
+    school: { ar: 'مدارس ومعاهد', df: { LT: 1, SK: 0.4, DS: 0.6, KT: 0.7, WH: 0.7, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'AC', 'DS', 'IT', 'KT', 'WH', 'MT'] },
+    hosp:   { ar: 'مستشفيات وعيادات', df: { LT: 1, SK: 0.6, DS: 0.8, KT: 0.7, WH: 0.8, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'DS', 'AC', 'IT', 'MT', 'LF', 'WH', 'FS'] },
+    hotel:  { ar: 'فنادق وشقق مفروشة', df: { LT: 0.8, SK: 0.5, DS: 0.6, KT: 0.7, WH: 0.6, AC: 0.9, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['LT', 'SK', 'DS', 'WH', 'AC', 'KT', 'LF', 'MT'] },
+    sport:  { ar: 'ملاعب ومنشآت رياضية', df: { LT: 1, SK: 0.5, DS: 0.7, KT: 0.8, WH: 0.7, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['SL', 'LT', 'AC', 'SK', 'DS', 'KT', 'MT', 'IT'] },
+    infra:  { ar: 'بنية تحتية (طرق ومحطات)', df: { LT: 1, SK: 0.5, DS: 0.7, KT: 0.7, WH: 0.7, AC: 1, MT: 1, IT: 1, EV: 1, SL: 1, IN: 1, FS: 1 }, rec: ['IN', 'MT', 'LT', 'EV', 'IT', 'AC'] }
+  };
+  const LIFT_DF = [1, 0.75, 0.6];
+
+  // ---- Load library: unit W | VA | kW (shaft) | kWe (electric input) | TR (with EER) | kVA
+  const L = (id, cat, ar, unit, val, o = {}) => Object.assign({ id, cat, ar, unit, val, pf: 0.9, ph: 1 }, o);
+  const LIB = [
+    L('lt-panel36', 'LT', 'لوحة LED 60×60', 'W', 36, { pf: 0.95 }),
+    L('lt-panel40', 'LT', 'لوحة LED 60×60', 'W', 40, { pf: 0.95 }),
+    L('lt-down12', 'LT', 'داونلايت LED', 'W', 12, { pf: 0.95 }),
+    L('lt-down18', 'LT', 'داونلايت LED', 'W', 18, { pf: 0.95 }),
+    L('lt-linear', 'LT', 'إنارة خطية LED (1.2 م)', 'W', 40, { pf: 0.95 }),
+    L('lt-strip', 'LT', 'شريط LED (لكل متر)', 'W', 14.4, { pf: 0.9 }),
+    L('lt-hibay150', 'LT', 'هاي باي LED للمستودعات', 'W', 150, { pf: 0.95 }),
+    L('lt-hibay200', 'LT', 'هاي باي LED للمستودعات', 'W', 200, { pf: 0.95 }),
+    L('lt-wall', 'LT', 'إنارة جدارية خارجية', 'W', 20, { pf: 0.9 }),
+    L('lt-emerg', 'LT', 'إنارة طوارئ / مخرج', 'W', 5, { pf: 0.9 }),
+    L('lt-chand', 'LT', 'ثريا ديكورية', 'W', 120, { pf: 0.95 }),
+    L('lt-bollard', 'LT', 'إنارة حدائق Bollard', 'W', 15, { pf: 0.9 }),
+
+    L('sk-180', 'SK', 'مقبس عام 13A', 'VA', 180),
+    L('sk-200', 'SK', 'مقبس عام 13A', 'VA', 200),
+    L('sk-floor', 'SK', 'مقبس أرضي / Floor box', 'VA', 180),
+    L('sk-out', 'SK', 'مقبس خارجي مقاوم IP66', 'VA', 200),
+
+    L('ds-wash', 'DS', 'غسالة ملابس', 'VA', 2200),
+    L('ds-dryer', 'DS', 'مجفف ملابس', 'VA', 3000, { pf: 1 }),
+    L('ds-dish', 'DS', 'غسالة صحون', 'VA', 2000),
+    L('ds-fridge', 'DS', 'ثلاجة منزلية', 'VA', 300, { pf: 0.8 }),
+    L('ds-micro', 'DS', 'مايكرويف', 'VA', 1500),
+    L('ds-kettle', 'DS', 'غلاية / مكينة قهوة', 'VA', 2000, { pf: 1 }),
+    L('ds-copier', 'DS', 'طابعة / ناسخة', 'VA', 1500),
+    L('ds-dryerhand', 'DS', 'مجفف أيدي', 'VA', 1800, { pf: 1 }),
+    L('ds-tv', 'DS', 'تلفزيون وأجهزة صوت', 'VA', 300),
+    L('ds-iron', 'DS', 'مكواة / أجهزة تجميل', 'VA', 1500, { pf: 1 }),
+
+    L('kt-cooker', 'KT', 'موقد وفرن كهربائي منزلي', 'W', 6000, { pf: 1 }),
+    L('kt-oven3', 'KT', 'فرن تجاري ثلاثي الطور', 'W', 9000, { pf: 1, ph: 3 }),
+    L('kt-fryer', 'KT', 'قلاية تجارية ثلاثية الطور', 'W', 12000, { pf: 1, ph: 3 }),
+    L('kt-griddle', 'KT', 'شواية / صاج تجاري', 'W', 6000, { pf: 1, ph: 3 }),
+    L('kt-chiller', 'KT', 'ثلاجة عرض تجارية', 'VA', 1000, { pf: 0.8 }),
+    L('kt-hood', 'KT', 'شفاط مطبخ تجاري', 'kW', 1.1, { pf: 0.82, eff: 0.8, ph: 3 }),
+
+    L('wh-50', 'WH', 'سخان مياه 50 لتر', 'W', 1500, { pf: 1 }),
+    L('wh-100', 'WH', 'سخان مياه 100 لتر', 'W', 3000, { pf: 1 }),
+    L('wh-inst', 'WH', 'سخان فوري', 'W', 6000, { pf: 1 }),
+    L('wh-central', 'WH', 'سخان مركزي ثلاثي الطور', 'W', 12000, { pf: 1, ph: 3 }),
+
+    L('ac-s1', 'AC', 'سبليت 1 طن', 'TR', 1, { eer: 11.5 }),
+    L('ac-s15', 'AC', 'سبليت 1.5 طن', 'TR', 1.5, { eer: 11.5 }),
+    L('ac-s2', 'AC', 'سبليت 2 طن', 'TR', 2, { eer: 11.5 }),
+    L('ac-s25', 'AC', 'سبليت 2.5 طن', 'TR', 2.5, { eer: 11 }),
+    L('ac-w15', 'AC', 'مكيف شباك 1.5 طن', 'TR', 1.5, { eer: 9.5 }),
+    L('ac-w2', 'AC', 'مكيف شباك 2 طن', 'TR', 2, { eer: 9.5 }),
+    L('ac-d3', 'AC', 'مخفي (Ducted) 3 طن ثلاثي', 'TR', 3, { eer: 10.5, ph: 3 }),
+    L('ac-d4', 'AC', 'مخفي (Ducted) 4 طن ثلاثي', 'TR', 4, { eer: 10.5, ph: 3 }),
+    L('ac-d5', 'AC', 'مخفي (Ducted) 5 طن ثلاثي', 'TR', 5, { eer: 10.5, ph: 3 }),
+    L('ac-p10', 'AC', 'وحدة باكدج 10 طن', 'TR', 10, { eer: 9.8, ph: 3 }),
+    L('ac-p20', 'AC', 'وحدة باكدج 20 طن', 'TR', 20, { eer: 9.8, ph: 3 }),
+    L('ac-vrf', 'AC', 'وحدة VRF خارجية (أدخل kW اللوحة)', 'kWe', 12, { pf: 0.95, ph: 3 }),
+    L('ac-fcu', 'AC', 'وحدة FCU', 'W', 150, { pf: 0.85, minIn: 10 }),
+    L('ac-ahu', 'AC', 'مروحة AHU', 'kW', 5.5, { pf: 0.85, eff: 0.89, ph: 3 }),
+    L('ac-ex60', 'AC', 'مروحة شفط صغيرة', 'W', 60, { pf: 0.8, minIn: 10 }),
+    L('ac-ex', 'AC', 'مروحة شفط / تهوية', 'kW', 0.75, { pf: 0.8, eff: 0.78, ph: 3, minIn: 10 }),
+
+    L('mt-home', 'MT', 'مضخة مياه منزلية', 'kW', 0.75, { pf: 0.85, eff: 0.75 }),
+    L('mt-b22', 'MT', 'مضخة تعزيز 2.2 kW', 'kW', 2.2, { pf: 0.82, eff: 0.85, ph: 3 }),
+    L('mt-b4', 'MT', 'مضخة تعزيز 4 kW', 'kW', 4, { pf: 0.85, eff: 0.88, ph: 3 }),
+    L('mt-75', 'MT', 'مضخة / محرك 7.5 kW', 'kW', 7.5, { pf: 0.85, eff: 0.9, ph: 3 }),
+    L('mt-15', 'MT', 'مضخة / محرك 15 kW', 'kW', 15, { pf: 0.86, eff: 0.91, ph: 3 }),
+    L('mt-30', 'MT', 'مضخة / محرك 30 kW', 'kW', 30, { pf: 0.86, eff: 0.92, ph: 3 }),
+    L('mt-75k', 'MT', 'مضخة / محرك 75 kW', 'kW', 75, { pf: 0.87, eff: 0.94, ph: 3 }),
+    L('mt-sump', 'MT', 'مضخة تصريف (Sump)', 'kW', 1.5, { pf: 0.82, eff: 0.8, ph: 3 }),
+    L('mt-pool', 'MT', 'مضخة مسبح وفلتر', 'kW', 1.5, { pf: 0.82, eff: 0.8 }),
+    L('mt-gate', 'MT', 'محرك بوابة / باب جراج', 'VA', 600, { pf: 0.8 }),
+
+    L('lf-home', 'LF', 'مصعد منزلي', 'kW', 4, { pf: 0.85, eff: 0.88, ph: 3 }),
+    L('lf-8', 'LF', 'مصعد ركاب 8 أشخاص', 'kW', 7.5, { pf: 0.85, eff: 0.9, ph: 3 }),
+    L('lf-13', 'LF', 'مصعد ركاب 13 شخصاً', 'kW', 11, { pf: 0.85, eff: 0.9, ph: 3 }),
+    L('lf-svc', 'LF', 'مصعد خدمة / بضائع', 'kW', 15, { pf: 0.86, eff: 0.91, ph: 3 }),
+    L('lf-esc', 'LF', 'سلم كهربائي', 'kW', 11, { pf: 0.85, eff: 0.9, ph: 3 }),
+
+    L('it-ups1', 'IT', 'UPS 1 kVA', 'kVA', 1.2),
+    L('it-ups3', 'IT', 'UPS 3 kVA / خزانة شبكة', 'kVA', 3),
+    L('it-ups10', 'IT', 'UPS 10 kVA ثلاثي', 'kVA', 11, { ph: 3 }),
+    L('it-rack', 'IT', 'خزانة خوادم', 'kVA', 5),
+    L('it-cctv', 'IT', 'مسجل CCTV وكاميرات', 'VA', 400),
+    L('it-acs', 'IT', 'التحكم بالدخول والبوابات', 'VA', 300),
+    L('it-bms', 'IT', 'لوحة BMS / تحكم', 'VA', 300),
+
+    L('ev-7', 'EV', 'شاحن AC أحادي 7.4 kW', 'kWe', 7.4, { pf: 0.99 }),
+    L('ev-11', 'EV', 'شاحن AC ثلاثي 11 kW', 'kWe', 11, { pf: 0.99, ph: 3 }),
+    L('ev-22', 'EV', 'شاحن AC ثلاثي 22 kW', 'kWe', 22, { pf: 0.99, ph: 3 }),
+    L('ev-50', 'EV', 'شاحن DC سريع 50 kW', 'kWe', 50, { pf: 0.98, ph: 3 }),
+
+    L('sl-fl1000', 'SL', 'كشاف ملعب LED 1000W', 'W', 1000, { pf: 0.95 }),
+    L('sl-fl1500', 'SL', 'كشاف ملعب LED 1500W', 'W', 1500, { pf: 0.95 }),
+    L('sl-pole', 'SL', 'عمود كشافات (6 × 1000W) ثلاثي', 'W', 6000, { pf: 0.95, ph: 3 }),
+    L('sl-padel', 'SL', 'إنارة ملعب بادل كامل (Class I)', 'W', 2000, { pf: 0.95 }),
+    L('sl-screen', 'SL', 'شاشة LED (لكل م²)', 'VA', 300),
+    L('sl-score', 'SL', 'لوحة نتائج', 'VA', 2000),
+    L('sl-pa', 'SL', 'نظام صوتيات PA', 'VA', 2000),
+    L('sl-irr', 'SL', 'مضخة ري العشب', 'kW', 7.5, { pf: 0.85, eff: 0.9, ph: 3 }),
+
+    L('in-st100', 'IN', 'إنارة شارع LED 100W', 'W', 100, { pf: 0.95 }),
+    L('in-st150', 'IN', 'إنارة شارع LED 150W', 'W', 150, { pf: 0.95 }),
+    L('in-st250', 'IN', 'إنارة شارع LED 250W', 'W', 250, { pf: 0.95 }),
+    L('in-tunnel', 'IN', 'إنارة نفق LED', 'W', 120, { pf: 0.95 }),
+    L('in-signal', 'IN', 'إشارة مرور (تقاطع)', 'VA', 500),
+    L('in-cam', 'IN', 'كاميرا طريق / ITS', 'VA', 60),
+    L('in-vms', 'IN', 'لوحة رسائل متغيرة VMS', 'VA', 3000),
+    L('in-fount', 'IN', 'مضخة نافورة', 'kW', 2.2, { pf: 0.82, eff: 0.85, ph: 3 }),
+
+    L('fs-fap', 'FS', 'لوحة إنذار حريق', 'VA', 300, { pf: 0.9, curve: 'C' }),
+    L('fs-pres', 'FS', 'مروحة ضغط سلالم 5.5 kW', 'kW', 5.5, { pf: 0.85, eff: 0.89, ph: 3, mode: 'fire' }),
+    L('fs-smoke', 'FS', 'مروحة شفط دخان 11 kW', 'kW', 11, { pf: 0.85, eff: 0.9, ph: 3, mode: 'fire' }),
+    L('fs-jockey', 'FS', 'مضخة جوكي', 'kW', 2.2, { pf: 0.82, eff: 0.85, ph: 3 }),
+    L('fs-pump', 'FS', 'مضخة حريق كهربائية', 'kW', 45, { pf: 0.87, eff: 0.93, ph: 3, mode: 'fire' }),
+    L('fs-lift', 'FS', 'مصعد إطفاء', 'kW', 15, { pf: 0.86, eff: 0.91, ph: 3 }),
+
+    L('sp-1', 'SP', 'احتياطي أحادي', 'VA', 0, { brk: 20 }),
+    L('sp-3', 'SP', 'احتياطي ثلاثي', 'VA', 0, { brk: 20, ph: 3 })
+  ];
+
+  // ---------- helpers
+  const interp = (tbl, x) => {
+    const ks = Object.keys(tbl).map(Number).sort((a, b) => a - b);
+    if (x <= ks[0]) return tbl[ks[0]];
+    if (x >= ks[ks.length - 1]) return tbl[ks[ks.length - 1]];
+    for (let i = 0; i < ks.length - 1; i++) {
+      const a = ks[i], b = ks[i + 1];
+      if (x >= a && x <= b) {
+        const ta = tbl[a], tb = tbl[b];
+        if (Array.isArray(ta)) return ta.map((v, j) => v + (tb[j] - v) * (x - a) / (b - a));
+        return ta + (tb - ta) * (x - a) / (b - a);
+      }
+    }
+  };
+  const stepDown = (tbl, n) => { // grouping: use the value at n or the next tabulated count above (conservative)
+    const ks = Object.keys(tbl).map(Number).sort((a, b) => a - b);
+    for (const k of ks) if (n <= k) return tbl[k];
+    return tbl[ks[ks.length - 1]];
+  };
+  const nextStd = (list, x) => { for (const v of list) if (v >= x - 1e-9) return v; return null; };
+  const r2 = (x, d = 2) => Math.round(x * 10 ** d) / 10 ** d;
+
+  function corrections(c) { // c: {method, ins, amb, group, soil}
+    const ii = c.ins === 'XLPE' ? 1 : 0;
+    const ground = c.method === 'D' || c.method === 'D2';
+    const ca = (ground ? interp(T_GND, c.amb) : interp(T_AIR, c.amb))[ii];
+    const gt = c.method === 'E' ? G_TRAY : c.method === 'C' ? G_WALL : c.method === 'D' ? G_DUCT : c.method === 'D2' ? G_DIRECT : G_BUNCH;
+    const cg = stepDown(gt, Math.max(1, Math.round(c.group || 1)));
+    const cs = c.method === 'D' ? interp(SOIL, c.soil || 2.5) : c.method === 'D2' ? interp(SOIL_DIRECT, c.soil || 2.5) : 1;
+    return { ca, cg, cs, k: ca * cg * cs };
+  }
+  function earthSize(s) {
+    if (s <= 16) return s;
+    if (s <= 35) return 16;
+    return nextStd(SIZES, s / 2);
+  }
+  function rOhmKm(idx) { return R20[idx] * 1.25; } // IEC 60364-5-52 Annex G: ρ1 = 1.25 × ρ20
+  function vdPct(I, Lm, idx, ins, pf, ph, sys, nPar = 1) {
+    if (!Lm || I <= 0) return 0;
+    const R = rOhmKm(idx, ins) / nPar, X = X_KM / nPar;
+    const cos = Math.min(1, Math.max(0.1, pf || 0.9)), sin = Math.sqrt(1 - cos * cos);
+    const z = R * cos + X * sin;
+    if (ph === 3) return Math.sqrt(3) * I * (Lm / 1000) * z / sys.VLL * 100;
+    return 2 * I * (Lm / 1000) * z / sys.VLN * 100;
+  }
+
+  function unitVA(r) {
+    const pf = r.pf || 1;
+    switch (r.unit) {
+      case 'W': return r.val / pf;
+      case 'VA': return r.val;
+      case 'kVA': return r.val * 1000;
+      case 'kW': return r.val * 1000 / ((r.eff || 0.9) * pf);
+      case 'kWe': return r.val * 1000 / pf;
+      case 'TR': return r.val * 12000 / (r.eer || 11) / pf;
+      default: return r.val;
+    }
+  }
+
+  // Select cable for a circuit: smallest size with Iz >= In and VD within limit
+  function pickCable(o) { // {In, Ib, len, pf, ph, inst, minSize, vdLimit, vdUp, sys, override, maxPar}
+    const loaded = o.ph === 3 ? 3 : 2;
+    const tbl = AMP[o.inst.method][o.inst.ins][loaded];
+    const cf = corrections(o.inst);
+    const startIdx = Math.max(0, SIZES.indexOf(o.minSize));
+    const maxPar = o.maxPar || 1;
+    const evalIdx = (i, n) => {
+      const It = tbl[i];
+      if (It == null) return null;
+      const Iz = It * cf.k * n;
+      const vd = vdPct(o.Ib, o.len, i, o.inst.ins, o.pf, o.ph, o.sys, n);
+      return { idx: i, size: SIZES[i], n, It, Iz, vd, vdTot: vd + (o.vdUp || 0), okI: Iz >= o.In - 1e-9, okV: vd + (o.vdUp || 0) <= o.vdLimit + 1e-9 };
+    };
+    if (o.override && o.override !== 'auto') {
+      const i = SIZES.indexOf(Number(o.override));
+      const r = evalIdx(i, 1);
+      if (!r) return { fail: 'method', cf };
+      return Object.assign(r, { cf, manual: true });
+    }
+    for (let n = 1; n <= maxPar; n++) {
+      for (let i = startIdx; i < SIZES.length; i++) {
+        const r = evalIdx(i, n);
+        if (!r) break;
+        if (r.okI && r.okV) return Object.assign(r, { cf });
+      }
+    }
+    return { fail: 'none', cf };
+  }
+
+  function deviceLabel(In, rcd) {
+    if (In <= 63) return rcd ? 'RCBO' : 'MCB';
+    if (In <= 1600) return rcd ? 'MCCB+RCD' : 'MCCB';
+    return 'ACB';
+  }
+
+  // ---------- full calculation
+  function compute(state) {
+    const s = state.settings;
+    const sys = s.system === '1P' ? { VLN: 230, VLL: 400, threeP: false } : s.system === '380' ? { VLN: 220, VLL: 380, threeP: true } : { VLN: 230, VLL: 400, threeP: true };
+    const proj = PROJECTS[s.project] || PROJECTS.off;
+    const dfOf = cat => (state.dfOverride && state.dfOverride[cat] != null) ? state.dfOverride[cat] : (proj.df[cat] ?? 1);
+    const out = { rows: [], warnings: [], sys };
+
+    // 1) row loads
+    for (const r of state.rows) {
+      const cat = CATS[r.cat] || CATS.DS;
+      const ph = sys.threeP ? (r.ph === 3 ? 3 : 1) : 1;
+      const uva = r.cat === 'SP' ? 0 : unitVA(r);
+      const VA = uva * (r.qty || 0);
+      const P = VA * (r.unit === 'W' || r.unit === 'kW' || r.unit === 'kWe' || r.unit === 'TR' ? (r.pf || 1) : (r.pf || 1));
+      const Ib = VA / (ph === 3 ? Math.sqrt(3) * sys.VLL : sys.VLN);
+      const phase = ph === 3 ? '3P' : (sys.threeP ? (r.phase || 'L1') : 'L1');
+      const per = { L1: 0, L2: 0, L3: 0 };
+      if (ph === 3) { per.L1 = per.L2 = per.L3 = VA / 3; } else per[phase] = VA;
+      const mode = r.mode || 'duty';
+      const dfCat = r.cat === 'SP' ? 0 : (r.df != null && r.df !== '' ? Number(r.df) : dfOf(r.cat));
+      out.rows.push({ id: r.id, r, cat, ph, uva, VA, P, Ib, phase, per, mode, dfCat, df: mode === 'duty' ? dfCat : 0 });
+    }
+    // lifts diversity (largest 1, second 0.75, rest 0.6) — applies to duty lift units
+    const liftUnits = [];
+    out.rows.forEach(x => { if (x.r.cat === 'LF' && x.mode === 'duty') for (let i = 0; i < (x.r.qty || 0); i++) liftUnits.push({ x, va: x.uva }); });
+    liftUnits.sort((a, b) => b.va - a.va);
+    const liftDem = new Map();
+    liftUnits.forEach((u, i) => liftDem.set(u.x, (liftDem.get(u.x) || 0) + u.va * LIFT_DF[Math.min(i, 2)]));
+    for (const x of out.rows) {
+      if (x.r.cat === 'LF' && x.mode === 'duty' && !(x.r.df != null && x.r.df !== '')) {
+        x.dem = liftDem.get(x) || 0; x.df = x.VA ? x.dem / x.VA : 0; x.liftRule = true;
+      } else x.dem = x.VA * x.df;
+      x.demPer = { L1: x.per.L1 * (x.VA ? x.dem / x.VA : 0), L2: x.per.L2 * (x.VA ? x.dem / x.VA : 0), L3: x.per.L3 * (x.VA ? x.dem / x.VA : 0) };
+    }
+
+    // 2) panel totals
+    const conn = { L1: 0, L2: 0, L3: 0 }, dem = { L1: 0, L2: 0, L3: 0 };
+    let fireVA = 0, standbyVA = 0;
+    for (const x of out.rows) {
+      for (const p of ['L1', 'L2', 'L3']) { conn[p] += x.per[p]; dem[p] += x.demPer[p]; }
+      if (x.mode === 'fire') fireVA += x.VA;
+      if (x.mode === 'standby') standbyVA += x.VA;
+    }
+    const totConn = conn.L1 + conn.L2 + conn.L3, totDem = dem.L1 + dem.L2 + dem.L3;
+    const imb = o => { const a = (o.L1 + o.L2 + o.L3) / 3; return a > 0 ? (Math.max(o.L1, o.L2, o.L3) - a) / a * 100 : 0; };
+    const IbPanel = sys.threeP ? Math.max(dem.L1, dem.L2, dem.L3) / sys.VLN : totDem / sys.VLN;
+    const Iph = { L1: dem.L1 / sys.VLN, L2: dem.L2 / sys.VLN, L3: dem.L3 / sys.VLN };
+    const IN = sys.threeP ? Math.sqrt(Math.max(0, Iph.L1 ** 2 + Iph.L2 ** 2 + Iph.L3 ** 2 - Iph.L1 * Iph.L2 - Iph.L2 * Iph.L3 - Iph.L3 * Iph.L1)) : IbPanel;
+    const design = IbPanel * (1 + (s.spare || 0) / 100);
+    const mainIn = s.mainOverride && s.mainOverride !== 'auto' ? Number(s.mainOverride) : nextStd(BRK, Math.max(design, 16));
+    const bus = nextStd(BUS, mainIn);
+    const pfAvg = totConn > 0 ? out.rows.reduce((a, x) => a + x.VA * (x.r.pf || 1), 0) / totConn : 0.9;
+    const feeder = pickCable({ In: mainIn, Ib: IbPanel, len: s.feeder.len, pf: pfAvg || 0.9, ph: sys.threeP ? 3 : 1, inst: s.feeder, minSize: 2.5, vdLimit: s.feederVd, vdUp: 0, sys, override: s.feeder.override, maxPar: 4 });
+    const vdUp = feeder.fail ? 0 : feeder.vd;
+    out.panel = { conn, dem, totConn, totDem, imbConn: imb(conn), imbDem: sys.threeP ? imb(dem) : 0, IbPanel, Iph, IN, design, mainIn, bus, feeder, vdUp, fireVA, standbyVA, pfAvg,
+      dfAll: totConn ? totDem / totConn : 0, mainDev: deviceLabel(mainIn, false) };
+
+    // 3) circuit protection & cables
+    for (const x of out.rows) {
+      const r = x.r, cat = x.cat;
+      if (r.cat === 'SP') {
+        x.In = Number(r.brk && r.brk !== 'auto' ? r.brk : 20); x.brkAuto = 20; x.curve = r.curve || 'C';
+        x.dev = deviceLabel(x.In, false); x.poles = x.ph === 3 ? 3 : 1; x.cable = null; continue;
+      }
+      const k = (cat.motor || cat.k125) ? 1.25 : (s.nec125 && cat.cont ? 1.25 : 1);
+      const minIn = r.minIn || cat.minIn;
+      x.brkAuto = nextStd(BRK, Math.max(x.Ib * k, minIn));
+      x.In = r.brk && r.brk !== 'auto' ? Number(r.brk) : x.brkAuto;
+      x.k = k;
+      x.curve = r.curve || cat.curve;
+      x.rcd = r.rcd != null ? r.rcd : cat.rcd;
+      x.dev = deviceLabel(x.In, x.rcd);
+      x.poles = x.ph === 3 ? 3 : 1;
+      const lenEff = (s.distributed && (r.cat === 'LT' || r.cat === 'SK')) ? (r.len || 0) / 2 : (r.len || 0);
+      const vdLimit = cat.vd === 'light' ? s.vdLight : s.vdOther;
+      x.vdLimit = vdLimit;
+      x.cable = pickCable({ In: x.In, Ib: x.Ib, len: lenEff, pf: r.pf || 0.9, ph: x.ph, inst: s.final, minSize: Math.max(s.minSize, r.minSize || 0), vdLimit, vdUp, sys, override: r.cable, maxPar: 1 });
+      if (!x.cable.fail) {
+        x.cable.earth = earthSize(x.cable.size);
+        const cores = x.ph === 3 ? (cat.motor ? 3 : 4) : 2;
+        const single = s.final.method === 'B1';
+        x.cable.label = (single ? cores + '×1C ' : cores + 'C×') + fmtSize(x.cable.size) + ' + ' + fmtSize(x.cable.earth) + 'E';
+      }
+    }
+
+    // 4) circuit numbering
+    numberCircuits(state, out, sys);
+
+    // 5) categories
+    const cats = {};
+    for (const x of out.rows) {
+      if (x.r.cat === 'SP') continue;
+      const c = cats[x.r.cat] || (cats[x.r.cat] = { conn: 0, dem: 0, n: 0 });
+      c.conn += x.VA; c.dem += x.dem; c.n++;
+    }
+    out.cats = cats;
+
+    // 6) warnings
+    const W = out.warnings, P = out.panel;
+    const lim = s.imbLimit || 10;
+    if (sys.threeP && P.imbDem > lim) W.push({ lvl: 'crit', t: `عدم اتزان الأطوار في الحمل المطلوب ${r2(P.imbDem, 1)}% يتجاوز الحد ${lim}%. اضغط «موازنة الأطوار تلقائياً» أو انقل دوائر.` });
+    else if (sys.threeP && P.imbConn > lim) W.push({ lvl: 'warn', t: `عدم اتزان الأطوار في الحمل الموصول ${r2(P.imbConn, 1)}% يتجاوز ${lim}% رغم أن الحمل المطلوب متزن.` });
+    if (feeder.fail) W.push({ lvl: 'crit', t: 'لا يوجد كابل تغذية مناسب بهذه الظروف حتى 4 كابلات متوازية. غيّر طريقة التمديد أو قلّل الطول أو راجع الحمل.' });
+    else {
+      if (feeder.n > 1) W.push({ lvl: 'info', t: `كابل التغذية يحتاج ${feeder.n} كابلات متوازية لكل طور.` });
+      if (feeder.manual && !feeder.okI) W.push({ lvl: 'crit', t: `كابل التغذية المختار يدوياً (${fmtSize(feeder.size)} mm²) قدرته ${r2(feeder.Iz, 0)}A أقل من القاطع الرئيسي ${mainIn}A.` });
+      if (!feeder.okV) W.push({ lvl: 'warn', t: `هبوط الجهد على المغذي ${r2(feeder.vd)}% يتجاوز الحد ${s.feederVd}%.` });
+    }
+    if (s.isc > 0 && s.icu > 0 && s.icu < s.isc) W.push({ lvl: 'crit', t: `سعة قطع القواطع ${s.icu} kA أقل من تيار القصر المتوقع عند اللوحة ${s.isc} kA.` });
+    if (s.mainOverride && s.mainOverride !== 'auto' && mainIn < design) W.push({ lvl: 'crit', t: `القاطع الرئيسي ${mainIn}A أقل من تيار التصميم مع الاحتياطي ${r2(design, 1)}A.` });
+    for (const x of out.rows) {
+      if (x.r.cat === 'SP') continue;
+      const tag = `الدائرة ${x.cct || '—'} (${x.r.desc || x.cat.ar})`;
+      if (x.In < x.Ib - 1e-9) W.push({ lvl: 'crit', t: `${tag}: القاطع ${x.In}A أصغر من تيار الحمل ${r2(x.Ib, 1)}A.` });
+      if (x.cable.fail) W.push({ lvl: 'crit', t: `${tag}: لا يوجد مقطع مناسب في جدول طريقة التمديد. غيّر الطريقة أو قسّم الدائرة.` });
+      else {
+        if (!x.cable.okI) W.push({ lvl: 'crit', t: `${tag}: الكابل ${fmtSize(x.cable.size)} mm² قدرته بعد التصحيح ${r2(x.cable.Iz, 1)}A أقل من القاطع ${x.In}A، فالقاطع لا يحميه.` });
+        if (!x.cable.okV) W.push({ lvl: 'warn', t: `${tag}: هبوط الجهد الكلي ${r2(x.cable.vdTot)}% يتجاوز ${x.vdLimit}%.` });
+      }
+      if (['SK', 'DS', 'KT', 'WH', 'EV'].includes(x.r.cat) && !x.rcd) W.push({ lvl: 'warn', t: `${tag}: دائرة مقابس أو أجهزة بدون حماية تسرب RCD 30mA.` });
+      if (x.r.cat === 'FS' && x.rcd) W.push({ lvl: 'warn', t: `${tag}: لا يوصى بـ RCD على دوائر السلامة والحريق لتفادي الفصل غير المرغوب.` });
+      if (x.r.cat === 'EV' && x.rcd) W.push({ lvl: 'info', t: `${tag}: شاحن EV يحتاج RCD نوع A مع كشف تسرب DC 6mA أو نوع B حسب الشاحن.` });
+    }
+    if (out.overflow) W.push({ lvl: 'crit', t: `عدد الدوائر يتجاوز مخارج اللوحة (${out.waysTotal} مخرج أحادي). كبّر اللوحة.` });
+    else if (out.waysTotal) {
+      const free = out.waysTotal - out.waysUsed;
+      if (free / out.waysTotal * 100 < (s.spareWays || 0) - 1e-9) W.push({ lvl: 'warn', t: `المخارج الفارغة ${free} من ${out.waysTotal} (${r2(free / out.waysTotal * 100, 0)}%) أقل من ${s.spareWays}% المطلوبة.` });
+    }
+    if (fireVA > 0) W.push({ lvl: 'info', t: `أحمال تعمل في وضع الحريق فقط ${r2(fireVA / 1000, 1)} kVA مستبعدة من الطلب العادي. أدخلها في حساب المولد.` });
+    if (standbyVA > 0) W.push({ lvl: 'info', t: `معدات احتياطية ${r2(standbyVA / 1000, 1)} kVA مستبعدة من الطلب. تأكد من وجود تعشيق يمنع تشغيلها مع المعدات العاملة.` });
+    return out;
+  }
+
+  function numberCircuits(state, out, sys) {
+    const s = state.settings;
+    if (!sys.threeP) {
+      let n = 0; const total = s.ways || 12;
+      for (const x of out.rows) { n++; x.cct = n <= total ? String(n) : '—'; }
+      out.waysTotal = total; out.waysUsed = Math.min(n, total); out.overflow = n > total; return;
+    }
+    const W = s.ways || 12; // TPN ways
+    const slots = Array.from({ length: W }, () => ({ L1: false, L2: false, L3: false }));
+    let used = 0, overflow = false;
+    for (const x of out.rows) {
+      if (x.ph === 3) {
+        const w = slots.findIndex(sl => !sl.L1 && !sl.L2 && !sl.L3);
+        if (w < 0) { x.cct = '—'; overflow = true; continue; }
+        slots[w].L1 = slots[w].L2 = slots[w].L3 = true; x.cct = (w + 1) + 'L123'; used += 3;
+      } else {
+        const p = x.phase;
+        const w = slots.findIndex(sl => !sl[p]);
+        if (w < 0) { x.cct = '—'; overflow = true; continue; }
+        slots[w][p] = true; x.cct = (w + 1) + p; used += 1;
+      }
+    }
+    out.waysTotal = W * 3; out.waysUsed = used; out.overflow = overflow;
+  }
+
+  // Greedy phase balancing on demand, spreading same-category circuits
+  function balance(state) {
+    const res = compute(state);
+    const sys = res.sys;
+    if (!sys.threeP) return state;
+    const dem = { L1: 0, L2: 0, L3: 0 }, conn = { L1: 0, L2: 0, L3: 0 };
+    const cnt = { L1: {}, L2: {}, L3: {} };
+    const singles = [];
+    for (const x of res.rows) {
+      if (x.ph === 3) { for (const p of ['L1', 'L2', 'L3']) { dem[p] += x.demPer[p]; conn[p] += x.per[p]; } }
+      else singles.push(x);
+    }
+    const spares = singles.filter(x => x.r.cat === 'SP');
+    const loads = singles.filter(x => x.r.cat !== 'SP');
+    loads.sort((a, b) => (b.dem - a.dem) || (b.VA - a.VA));
+    const nOn = { L1: 0, L2: 0, L3: 0 };
+    for (const x of loads) {
+      const c = x.r.cat;
+      const minC = Math.min(...['L1', 'L2', 'L3'].map(p => cnt[p][c] || 0));
+      let best = null, bestScore = Infinity;
+      for (const p of ['L1', 'L2', 'L3']) {
+        const extra = ((cnt[p][c] || 0) - minC) * 0.35 * Math.max(x.dem, 50);
+        const score = dem[p] + x.dem + extra + 0.02 * (conn[p] + x.VA);
+        if (score < bestScore - 1e-9) { bestScore = score; best = p; }
+      }
+      const row = state.rows.find(r => r.id === x.id);
+      row.phase = best;
+      dem[best] += x.dem; conn[best] += x.VA; cnt[best][c] = (cnt[best][c] || 0) + 1; nOn[best]++;
+    }
+    for (const x of spares) { // spare ways go where fewest single-phase circuits sit
+      const best = ['L1', 'L2', 'L3'].sort((a, b) => nOn[a] - nOn[b] || dem[a] - dem[b])[0];
+      state.rows.find(r => r.id === x.id).phase = best; nOn[best]++;
+    }
+    return state;
+  }
+
+  function lightestPhase(state) {
+    const res = compute(state);
+    const d = res.panel.dem;
+    return ['L1', 'L2', 'L3'].sort((a, b) => d[a] - d[b])[0];
+  }
+
+  const fmtSize = s => (s === 1.5 ? '1.5' : String(s));
+
+  return { SIZES, AMP, METHODS, BRK, BUS, CATS, PROJECTS, LIB, compute, balance, lightestPhase, unitVA, corrections, earthSize, fmtSize, r2 };
+})();
+if (typeof module !== 'undefined') module.exports = ENG;
+
+</script>
+<script>
+(() => {
+  const E = ENG;
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const f0 = n => Math.round(n || 0).toLocaleString('en-US');
+  const fx = (n, d) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const uid = p => (p || 'r') + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 6);
+  const UNITS = { W: 'W', VA: 'VA', kVA: 'kVA', kW: 'kW محرك', kWe: 'kW كهربائي', TR: 'طن تبريد' };
+  const USHORT = { W: 'W', VA: 'VA', kVA: 'kVA', kW: 'kW', kWe: 'kWe', TR: 'TR' };
+  const bd = s => `<bdi>${s}</bdi>`;
+  const MODES = { duty: 'عادي', standby: 'احتياطي', fire: 'حريق فقط' };
+  const LS_CUR = 'ps.current.v1', LS_SAVED = 'ps.saved.v1', LS_BANNER = 'ps.banner.v1';
+  const DEF_LEN = { LT: 25, SK: 25, DS: 20, KT: 15, WH: 15, AC: 30, MT: 30, LF: 40, IT: 15, EV: 30, SL: 80, IN: 120, FS: 40, SP: 0 };
+  const CB_LIST = E.BRK.filter(v => v <= 630);
+  const ls = {
+    get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+  };
+
+  // ---------- state
+  function defaultSettings() {
+    return { project: 'off', system: '3P', ways: 16, spare: 25, spareWays: 20, isc: 10, icu: 10, mainOverride: 'auto', nec125: false, distributed: false,
+      supply: 'public', vdLight: 3, vdOther: 5, feederVd: 2, imbLimit: 10, minSize: 2.5,
+      final: { method: 'B1', ins: 'PVC', amb: 40, group: 2, soil: 2 },
+      feeder: { method: 'E', ins: 'XLPE', amb: 45, group: 2, soil: 2, len: 35, override: 'auto' } };
+  }
+  function newState(keepSettings) {
+    return { id: uid('p'), meta: { project: '', tag: '', fedFrom: '', location: '' },
+      settings: keepSettings ? JSON.parse(JSON.stringify(keepSettings)) : defaultSettings(), rows: [], dfOverride: {} };
+  }
+  function normalize(s) {
+    const d = defaultSettings();
+    const o = Object.assign(newState(), s || {});
+    o.id = o.id || uid('p');
+    o.meta = Object.assign({ project: '', tag: '', fedFrom: '', location: '' }, o.meta || {});
+    o.settings = Object.assign(d, o.settings || {});
+    o.settings.final = Object.assign(defaultSettings().final, (s && s.settings && s.settings.final) || {});
+    o.settings.feeder = Object.assign(defaultSettings().feeder, (s && s.settings && s.settings.feeder) || {});
+    o.rows = Array.isArray(o.rows) ? o.rows.filter(r => r && E.CATS[r.cat]).map(r => Object.assign({ id: uid(), qty: 1, unit: 'VA', val: 0, pf: 0.9, ph: 1, phase: 'L1', mode: 'duty', len: 20, brk: 'auto', cable: 'auto', curve: null, rcd: null, minIn: null, df: null, desc: '' }, r)) : [];
+    o.dfOverride = o.dfOverride && typeof o.dfOverride === 'object' ? o.dfOverride : {};
+    return o;
+  }
+  const descOf = it => {
+    const hasNum = /\d/.test(it.ar);
+    if (!hasNum && it.val > 0 && (it.unit === 'W' || it.unit === 'VA')) return `${it.ar} ${it.val}${it.unit}`;
+    if (!hasNum && it.unit === 'kVA') return `${it.ar} ${it.val}kVA`;
+    return it.ar;
+  };
+  function rowFromItem(it, phase) {
+    return { id: uid(), itemId: it.id, cat: it.cat, desc: descOf(it), qty: 1, unit: it.unit, val: it.val, pf: it.pf, eff: it.eff ?? null, eer: it.eer ?? null,
+      ph: it.ph || 1, phase: phase || 'L1', mode: it.mode || 'duty', len: DEF_LEN[it.cat] ?? 20, brk: it.brk || 'auto', cable: 'auto', curve: it.curve || null, rcd: null, minIn: it.minIn || null, df: null };
+  }
+  const lib = id => E.LIB.find(x => x.id === id);
+  function exampleState() {
+    const st = newState();
+    st.example = true;
+    st.meta = { project: 'مبنى مكاتب — مثال المرجع', tag: 'DB-1F', fedFrom: 'MDB — الدائرة 5', location: 'غرفة الكهرباء — الدور الأول' };
+    const mk = (id, qty, desc, phase, len, extra) => Object.assign(rowFromItem(lib(id), phase), { qty, desc: desc || descOf(lib(id)), len: len ?? DEF_LEN[lib(id).cat] }, extra || {});
+    st.rows = [
+      mk('lt-panel36', 20, 'إنارة مكاتب مفتوحة — الجناح A', 'L1', 25),
+      mk('lt-panel36', 20, 'إنارة مكاتب مفتوحة — الجناح B', 'L2', 25),
+      mk('lt-panel36', 20, 'إنارة مكاتب واجتماعات', 'L3', 25),
+      mk('lt-down18', 30, 'إنارة ممرات ودورات مياه ومطبخ', 'L1', 25),
+      mk('sk-180', 10, 'مقابس مكاتب مفتوحة — A', 'L1', 25),
+      mk('sk-180', 10, 'مقابس مكاتب مفتوحة — B', 'L2', 25),
+      mk('sk-180', 10, 'مقابس مكاتب واجتماعات', 'L3', 25),
+      mk('ds-micro', 2, 'مقابس المطبخ (غلاية + مايكرويف)', 'L1', 20),
+      mk('wh-50', 1, 'سخان مياه 50 لتر', 'L2', 15),
+      mk('ac-ex60', 3, 'مراوح شفط دورات المياه', 'L2', 15),
+      mk('it-ups3', 1, 'UPS خزانة الشبكة 3 kVA', 'L3', 10),
+      mk('ds-copier', 1, 'طابعة / ناسخة', 'L2', 15),
+      ...[1, 2, 3, 4, 5, 6].map(i => mk('ac-d4', 1, `وحدة تكييف مخفية AC-${i} — 4 طن`, '3P', 40)),
+      mk('sp-1', 1, 'احتياطي', 'L3', 0), mk('sp-1', 1, 'احتياطي', 'L3', 0), mk('sp-3', 1, 'احتياطي ثلاثي', '3P', 0)
+    ];
+    return st;
+  }
+
+  let state, OUT, libCat = 'rec', DL = null, STORE = { kind: 'local' }, STANDALONE = false;
+
+  // ---------- path helpers
+  const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); const t = ks.reduce((a, k) => a[k], o); t[last] = v; };
+  const sysThree = () => state.settings.system !== '1P';
+
+  // ---------- settings UI
+  function fillStaticOptions() {
+    $('#s-project').innerHTML = Object.entries(E.PROJECTS).map(([k, p]) => `<option value="${k}">${esc(p.ar)}</option>`).join('');
+    const mOpts = Object.entries(E.METHODS).map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join('');
+    $('#f-method').innerHTML = mOpts; $('#d-method').innerHTML = mOpts;
+    $('#s-main').innerHTML = `<option value="auto">تلقائي</option>` + E.BRK.filter(v => v >= 16).map(v => `<option value="${v}">${v} A</option>`).join('');
+    $('#d-cable').innerHTML = `<option value="auto">تلقائي</option>` + E.SIZES.map(v => `<option value="${v}">${E.fmtSize(v)} mm²</option>`).join('');
+  }
+  function fillWays() {
+    const three = sysThree();
+    const opts = three ? [4, 6, 8, 12, 16, 18, 24, 30, 36] : [6, 8, 12, 16, 18, 24];
+    $('#ways-label').textContent = three ? 'حجم اللوحة (مخارج TPN)' : 'حجم اللوحة (مخارج أحادية)';
+    $('#s-ways').innerHTML = opts.map(n => `<option value="${n}">${three ? `${n}-way TPN · ${n * 3} مخرج` : `${n} مخرج`}</option>`).join('');
+    if (!opts.includes(Number(state.settings.ways))) state.settings.ways = three ? 16 : 12;
+  }
+  function renderSettings() {
+    fillWays();
+    $$('[data-s]').forEach(el => {
+      const v = getPath(state, el.dataset.s);
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+    });
+    labelAmb();
+  }
+  function labelAmb() {
+    $('#f-amb-l').textContent = state.settings.final.method.startsWith('D') ? 'حرارة التربة °C' : 'حرارة المحيط °C';
+    $('#d-amb-l').textContent = state.settings.feeder.method.startsWith('D') ? 'حرارة التربة °C' : 'حرارة المحيط °C';
+  }
+  function onSetting(el) {
+    const p = el.dataset.s, t = el.dataset.type;
+    let v = t === 'num' ? parseFloat(el.value) : t === 'bool' ? el.checked : el.value;
+    if (t === 'num' && !Number.isFinite(v)) return;
+    setPath(state, p, v);
+    if (p === 'settings.supply') {
+      state.settings.vdLight = v === 'private' ? 6 : 3; state.settings.vdOther = v === 'private' ? 8 : 5;
+      $('#l-vdl').value = state.settings.vdLight; $('#l-vdo').value = state.settings.vdOther;
+    }
+    if (p === 'settings.system') {
+      fillWays(); $('#s-ways').value = state.settings.ways;
+      if (!sysThree()) state.rows.forEach(r => { r.ph = 1; r.phase = 'L1'; });
+      renderTable();
+    }
+    if (p === 'settings.project') { libCat = 'rec'; renderLibrary(); buildDF(); }
+    if (p.endsWith('.method')) labelAmb();
+    if (p.startsWith('meta.')) delete state.example;
+    update();
+  }
+
+  // ---------- library
+  function renderLibrary() {
+    const proj = E.PROJECTS[state.settings.project] || E.PROJECTS.off;
+    const chips = [['rec', `مقترح لـ${proj.ar}`], ['all', 'الكل'], ...Object.entries(E.CATS).filter(([k]) => k !== 'SP').map(([k, c]) => [k, c.ar])];
+    $('#lib-chips').innerHTML = chips.map(([k, t]) => `<button type="button" class="chip${proj.rec.includes(k) ? ' rec' : ''}" data-chip="${k}" aria-pressed="${libCat === k}">${esc(t)}</button>`).join('');
+    renderItems();
+  }
+  function renderItems() {
+    const proj = E.PROJECTS[state.settings.project] || E.PROJECTS.off;
+    const q = $('#lib-search').value.trim();
+    let items = E.LIB.filter(it => it.cat !== 'SP');
+    if (q) items = items.filter(it => (it.ar + ' ' + E.CATS[it.cat].ar).includes(q));
+    else if (libCat === 'rec') items = proj.rec.flatMap(c => items.filter(it => it.cat === c));
+    else if (libCat !== 'all') items = items.filter(it => it.cat === libCat);
+    $('#lib-items').innerHTML = items.length ? items.map(it => {
+      const va = E.unitVA(it);
+      const val = it.unit === 'TR' ? `${it.val} TR · EER ${it.eer}` : `${it.val} ${USHORT[it.unit]}`;
+      return `<button type="button" class="item" data-add="${it.id}" title="إضافة إلى الجدول"><span class="n">${esc(descOf(it))}</span><span class="add" aria-hidden="true">+</span><span class="m">${esc(val)} · ${f0(va)} VA · ${it.ph === 3 ? '3φ' : '1φ'}</span></button>`;
+    }).join('') : `<p class="muted" style="margin:6px">لا توجد نتائج. جرّب كلمة أخرى أو أضف حملاً مخصصاً.</p>`;
+  }
+  function addRow(it) {
+    const phase = sysThree() ? (it.ph === 3 ? '3P' : E.lightestPhase(state)) : 'L1';
+    const row = rowFromItem(it, phase);
+    if (!sysThree()) row.ph = 1;
+    state.rows.push(row); delete state.example;
+    renderTable(); update();
+    const tr = $(`tr[data-id="${row.id}"]`);
+    if (tr) { tr.scrollIntoView({ block: 'nearest' }); const d = $('input.desc', tr); if (d) d.focus({ preventScroll: true }); }
+    toast(`أضيفت الدائرة: ${row.desc}`);
+  }
+
+  // ---------- schedule table
+  function opt(v, t, sel) { return `<option value="${esc(v)}"${String(sel) === String(v) ? ' selected' : ''}>${esc(t)}</option>`; }
+  function rowHTML(r) {
+    const sp = r.cat === 'SP', three = sysThree();
+    const id = r.id;
+    const catSel = sp ? `<span class="muted">احتياطي</span>` : `<select data-f="cat" id="c-${id}" aria-label="الفئة">${Object.entries(E.CATS).filter(([k]) => k !== 'SP').map(([k, c]) => opt(k, c.ar, r.cat)).join('')}</select>`;
+    const effCell = sp ? '—' : r.unit === 'kW' ? `<input type="number" data-f="eff" id="e-${id}" class="w44" min="0.3" max="1" step="0.01" value="${r.eff ?? 0.9}" aria-label="الكفاءة η">`
+      : r.unit === 'TR' ? `<input type="number" data-f="eer" id="e-${id}" class="w44" min="5" max="25" step="0.1" value="${r.eer ?? 11}" aria-label="EER">` : '<span class="muted">—</span>';
+    const phSel = `<select data-f="ph" id="h-${id}" aria-label="عدد الأطوار"${three ? '' : ' disabled'}>${opt(1, '1φ', r.ph)}${opt(3, '3φ', r.ph)}</select>`;
+    const phaseSel = (three && r.ph === 3) ? '<span class="muted ltr">L1-L2-L3</span>' : `<select data-f="phase" id="p-${id}" aria-label="الطور"${three ? '' : ' disabled'}>${opt('L1', 'L1', r.phase)}${opt('L2', 'L2', r.phase)}${opt('L3', 'L3', r.phase)}</select>`;
+    const brkSel = `<select data-f="brk" id="b-${id}" aria-label="القاطع"><option value="auto" data-c="brkauto"${r.brk === 'auto' ? ' selected' : ''}>تلقائي</option>${CB_LIST.map(v => opt(v, v + ' A', r.brk)).join('')}</select><span class="sub" data-c="dev"></span>`;
+    const curveSel = `<select data-f="curve" id="k-${id}" aria-label="منحنى القاطع"><option value="" data-c="curveauto"${!r.curve ? ' selected' : ''}>تلقائي</option>${['B', 'C', 'D'].map(v => opt(v, v, r.curve || '-')).join('')}</select>`;
+    const rcd = sp ? '' : `<input type="checkbox" data-f="rcd" id="x-${id}" aria-label="حماية تسرب RCD 30mA"${(r.rcd ?? E.CATS[r.cat].rcd) ? ' checked' : ''}>`;
+    const cabSel = sp ? '<span class="muted">—</span>' : `<select data-f="cable" id="w-${id}" aria-label="مقطع الكابل"><option value="auto" data-c="cabauto"${r.cable === 'auto' ? ' selected' : ''}>تلقائي</option>${E.SIZES.map(v => opt(v, E.fmtSize(v) + ' mm²', r.cable)).join('')}</select><span class="sub" data-c="cab"></span>`;
+    const modeSel = sp ? '' : `<select data-f="mode" id="o-${id}" aria-label="حالة التشغيل">${Object.entries(MODES).map(([k, t]) => opt(k, t, r.mode)).join('')}</select>`;
+    return `<tr data-id="${id}">
+      <td class="c0 cct"><span class="cct-in"><i class="dot" data-c="dot"></i><span data-c="cct"></span></span></td>
+      <td class="c1"><input class="desc" type="text" data-f="desc" id="d-${id}" value="${esc(r.desc)}" aria-label="وصف الدائرة"></td>
+      <td>${catSel}</td>
+      <td>${sp ? '' : `<input type="number" data-f="qty" id="q-${id}" class="w44" min="0" step="1" value="${r.qty}" aria-label="العدد">`}</td>
+      <td>${sp ? '' : `<input type="number" data-f="val" id="v-${id}" min="0" step="any" value="${r.val}" aria-label="القدرة للوحدة"> <select data-f="unit" id="u-${id}" aria-label="وحدة القدرة">${Object.entries(UNITS).map(([k, t]) => opt(k, t, r.unit)).join('')}</select>`}</td>
+      <td>${sp ? '' : `<input type="number" data-f="pf" id="f-${id}" class="w44" min="0.1" max="1" step="0.01" value="${r.pf}" aria-label="معامل القدرة">`}</td>
+      <td>${effCell}</td>
+      <td>${phSel}</td>
+      <td>${phaseSel}</td>
+      <td class="n" data-c="va"></td>
+      <td class="n phc" data-c="p1"></td><td class="n phc" data-c="p2"></td><td class="n phc" data-c="p3"></td>
+      <td class="n" data-c="ib"></td>
+      <td>${brkSel}</td>
+      <td>${curveSel}</td>
+      <td style="text-align:center">${rcd}</td>
+      <td>${sp ? '' : `<input type="number" data-f="len" id="l-${id}" class="w44" min="0" step="1" value="${r.len}" aria-label="طول الدائرة بالمتر">`}</td>
+      <td>${cabSel}</td>
+      <td style="text-align:center"><span class="vd" data-c="vd"></span></td>
+      <td>${modeSel}</td>
+      <td>${sp ? '' : `<input type="number" data-f="df" id="z-${id}" class="w44" min="0" max="1" step="0.05" value="${r.df ?? ''}" aria-label="معامل الطلب للدائرة">`}</td>
+      <td class="n" data-c="dem"></td>
+      <td><span class="rowact">
+        <button type="button" class="icon" data-act="up" aria-label="تحريك لأعلى">▲</button>
+        <button type="button" class="icon" data-act="down" aria-label="تحريك لأسفل">▼</button>
+        <button type="button" class="icon" data-act="dup" aria-label="تكرار الدائرة">⧉</button>
+        <button type="button" class="icon del" data-act="del" aria-label="حذف الدائرة">✕</button>
+      </span></td>
+    </tr>`;
+  }
+  function renderTable() {
+    const body = $('#sched-body');
+    body.innerHTML = state.rows.length ? state.rows.map(rowHTML).join('')
+      : `<tr><td colspan="24" class="empty">الجدول فارغ. اختر أحمالاً من المكتبة أعلاه، أو أضف حملاً مخصصاً.</td></tr>`;
+  }
+  const findRow = id => state.rows.find(r => r.id === id);
+  function onTableInput(e) {
+    const el = e.target, f = el.dataset.f; if (!f) return;
+    const tr = el.closest('tr[data-id]'); if (!tr) return;
+    const r = findRow(tr.dataset.id); if (!r) return;
+    delete state.example;
+    if (f === 'desc') { r.desc = el.value; scheduleSave(); return; }
+    if (['qty', 'val', 'pf', 'eff', 'eer', 'len', 'df'].includes(f)) {
+      const v = parseFloat(el.value);
+      if (f === 'df') r.df = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : null;
+      else if (Number.isFinite(v)) r[f] = f === 'pf' ? Math.max(0.1, Math.min(1, v)) : Math.max(0, v);
+      else if (e.type === 'change') r[f] = 0;
+      update();
+    }
+  }
+  function onTableChange(e) {
+    const el = e.target, f = el.dataset.f; if (!f) return;
+    const tr = el.closest('tr[data-id]'); if (!tr) return;
+    const r = findRow(tr.dataset.id); if (!r) return;
+    delete state.example;
+    if (['qty', 'val', 'pf', 'eff', 'eer', 'len', 'df', 'desc'].includes(f)) return onTableInput(e);
+    let rebuild = false;
+    switch (f) {
+      case 'cat': r.cat = el.value; r.minIn = null; r.curve = null; r.rcd = null; rebuild = true; break;
+      case 'unit': r.unit = el.value; if (r.unit === 'kW' && !r.eff) r.eff = 0.9; if (r.unit === 'TR' && !r.eer) r.eer = 11; rebuild = true; break;
+      case 'ph': r.ph = Number(el.value); r.phase = r.ph === 3 ? '3P' : E.lightestPhase(state); rebuild = true; break;
+      case 'phase': r.phase = el.value; break;
+      case 'brk': r.brk = el.value === 'auto' ? 'auto' : Number(el.value); break;
+      case 'cable': r.cable = el.value === 'auto' ? 'auto' : Number(el.value); break;
+      case 'curve': r.curve = el.value || null; break;
+      case 'rcd': r.rcd = el.checked; break;
+      case 'mode': r.mode = el.value; break;
+    }
+    if (rebuild) renderTable();
+    update();
+  }
+  function onTableClick(e) {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const tr = b.closest('tr[data-id]'); const i = state.rows.findIndex(r => r.id === tr.dataset.id); if (i < 0) return;
+    const act = b.dataset.act; delete state.example;
+    if (act === 'up' && i > 0) [state.rows[i - 1], state.rows[i]] = [state.rows[i], state.rows[i - 1]];
+    else if (act === 'down' && i < state.rows.length - 1) [state.rows[i + 1], state.rows[i]] = [state.rows[i], state.rows[i + 1]];
+    else if (act === 'dup') state.rows.splice(i + 1, 0, Object.assign(JSON.parse(JSON.stringify(state.rows[i])), { id: uid() }));
+    else if (act === 'del') { const d = state.rows[i].desc; state.rows.splice(i, 1); toast(`حُذفت: ${d}`); }
+    renderTable(); update();
+    const again = $(`tr[data-id="${tr.dataset.id}"] [data-act="${act}"]`); if (again && act !== 'del') again.focus();
+  }
+
+  // ---------- computed rendering
+  function update() {
+    OUT = E.compute(state);
+    renderComputed(); renderSummary(); renderBreakdown(); updateDFPlaceholders(); renderSettingNotes();
+    scheduleSave();
+  }
+  function renderComputed() {
+    const body = $('#sched-body');
+    for (const x of OUT.rows) {
+      const tr = body.querySelector(`tr[data-id="${x.id}"]`); if (!tr) continue;
+      const set = (c, h) => { const el = tr.querySelector(`[data-c="${c}"]`); if (el) el.innerHTML = h; };
+      const sp = x.r.cat === 'SP';
+      tr.classList.toggle('spare', sp);
+      tr.classList.toggle('mode-fire', x.mode === 'fire'); tr.classList.toggle('mode-standby', x.mode === 'standby');
+      const dot = tr.querySelector('[data-c="dot"]'); dot.className = 'dot ' + (x.ph === 3 ? 'P3' : x.phase);
+      set('cct', esc(x.cct || '—'));
+      set('va', sp ? '—' : f0(x.VA));
+      ['L1', 'L2', 'L3'].forEach((p, i) => { const el = tr.querySelector(`[data-c="p${i + 1}"]`); el.textContent = x.per[p] > 0 ? f0(x.per[p]) : ''; el.classList.toggle('on', x.per[p] > 0); });
+      set('ib', sp ? '—' : fx(x.Ib, 1));
+      const ba = tr.querySelector('[data-c="brkauto"]'); if (ba) ba.textContent = `تلقائي · ${x.brkAuto} A`;
+      set('dev', esc(`${x.dev} · ${x.poles === 3 ? '3P' : '1P+N'}${x.rcd ? ' · 30mA' : ''}`));
+      const ca = tr.querySelector('[data-c="curveauto"]'); if (ca) ca.textContent = `تلقائي · ${x.r.curve ? x.cat.curve : x.curve}`;
+      if (!sp) {
+        const cab = x.cable;
+        const cb = tr.querySelector('[data-c="cabauto"]');
+        if (cab.fail) { if (cb) cb.textContent = 'تلقائي · —'; set('cab', '<span class="flag">لا يوجد مقطع مناسب</span>'); set('vd', '—'); tr.querySelector('[data-c="vd"]').className = 'vd na'; }
+        else {
+          if (cb) cb.textContent = `تلقائي · ${E.fmtSize(cab.size)} mm²`;
+          set('cab', `${esc(cab.label)} · Iz ${fx(cab.Iz, 1)}A${cab.okI ? '' : ' <span class="flag">!</span>'}`);
+          const v = tr.querySelector('[data-c="vd"]'); v.textContent = fx(cab.vdTot, 2) + '%'; v.className = 'vd ' + (cab.okV ? 'ok' : 'bad');
+        }
+      } else { const v = tr.querySelector('[data-c="vd"]'); v.textContent = '—'; v.className = 'vd na'; }
+      set('dem', sp ? '—' : f0(x.dem));
+      const dfIn = tr.querySelector('[data-f="df"]'); if (dfIn) dfIn.placeholder = x.mode !== 'duty' ? '0' : fx(x.liftRule ? x.df : x.dfCat, 2);
+    }
+    const P = OUT.panel;
+    $('#sched-foot').innerHTML = state.rows.length ? `
+      <tr><td class="c0"></td><td class="c1 lbl">الحمل الموصول VA</td><td colspan="7"></td><td class="n">${f0(P.totConn)}</td><td class="n">${f0(P.conn.L1)}</td><td class="n">${f0(P.conn.L2)}</td><td class="n">${f0(P.conn.L3)}</td><td colspan="9"></td><td></td><td></td></tr>
+      <tr><td class="c0"></td><td class="c1 lbl">الحمل المطلوب VA</td><td colspan="7"></td><td class="n">${f0(P.totDem)}</td><td class="n">${f0(P.dem.L1)}</td><td class="n">${f0(P.dem.L2)}</td><td class="n">${f0(P.dem.L3)}</td><td colspan="9"></td><td class="n">${f0(P.totDem)}</td><td></td></tr>
+      <tr><td class="c0"></td><td class="c1 lbl">التيار المطلوب A</td><td colspan="7"></td><td class="n">${fx(P.IbPanel, 1)}</td><td class="n">${fx(P.Iph.L1, 1)}</td><td class="n">${fx(P.Iph.L2, 1)}</td><td class="n">${fx(P.Iph.L3, 1)}</td><td colspan="9"></td><td></td><td></td></tr>` : '';
+  }
+  function feederLabel(P) {
+    const fd = P.feeder; if (fd.fail) return '—';
+    const cores = OUT.sys.threeP ? 4 : 2;
+    return `${fd.n > 1 ? fd.n + '×(' : ''}${cores}C×${E.fmtSize(fd.size)} + ${E.fmtSize(E.earthSize(fd.size))}E${fd.n > 1 ? ')' : ''}`;
+  }
+  function renderSummary() {
+    const P = OUT.panel, s = state.settings, three = OUT.sys.threeP;
+    const kW = OUT.rows.reduce((a, x) => a + x.VA * (x.r.pf || 1), 0);
+    const heavy = three ? ['L1', 'L2', 'L3'].reduce((a, p) => (P.dem[p] > P.dem[a] ? p : a), 'L1') : 'L1';
+    const imbOk = P.imbDem <= s.imbLimit;
+    const free = OUT.waysTotal - OUT.waysUsed;
+    const feederOk = !P.feeder.fail && P.feeder.okI && P.feeder.okV;
+    const tiles = [
+      ['الحمل الموصول', `${fx(P.totConn / 1000, 1)} <small>kVA</small>`, `${bd(fx(kW / 1000, 1) + ' kW')} · PF متوسط ${bd(fx(P.pfAvg, 2))}`],
+      ['الحمل المطلوب', `${fx(P.totDem / 1000, 1)} <small>kVA</small>`, `DF الكلي ${bd(fx(P.dfAll, 2))}`],
+      ['تيار التصميم Ib', `${fx(P.IbPanel, 1)} <small>A</small>`, three ? `أثقل طور ${bd(heavy)} · مع احتياطي ${bd(s.spare + '%')}: ${bd(fx(P.design, 1) + ' A')}` : `مع احتياطي ${bd(s.spare + '%')}: ${bd(fx(P.design, 1) + ' A')}`],
+      ['القاطع الرئيسي', `${P.mainIn} <small>A</small>`, bd(`${P.mainDev} ${three ? '4P' : '2P'} · Busbar ${P.bus} A`), 'main'],
+      ['كابل التغذية', `<span style="font-size:15px">${esc(feederLabel(P))}</span>`, P.feeder.fail ? '<span class="pill crit">لا يوجد مقطع مناسب</span>' : `${bd('Iz ' + fx(P.feeder.Iz, 0) + ' A')} · ${bd('ΔV ' + fx(P.feeder.vd, 2) + '%')} على ${bd(s.feeder.len + ' m')} ${feederOk ? '' : '<span class="pill crit">راجع</span>'}`]
+    ];
+    if (three) {
+      tiles.push(['عدم اتزان الأطوار', `${fx(P.imbDem, 1)} <small>%</small>`, `<span class="pill ${imbOk ? 'good' : 'crit'}">${imbOk ? 'ضمن الحد' : 'يتجاوز الحد'}</span> الموصول ${bd(fx(P.imbConn, 1) + '%')} · الحد ${bd(s.imbLimit + '%')}`]);
+      tiles.push(['تيار المحايد', `${fx(P.IN, 1)} <small>A</small>`, 'من عدم الاتزان، دون التوافقيات']);
+    }
+    tiles.push(['المخارج', `${OUT.waysUsed}/${OUT.waysTotal}`, `فارغة ${bd(Math.max(0, free) + ' (' + (OUT.waysTotal ? fx(Math.max(0, free) / OUT.waysTotal * 100, 0) : 0) + '%)')} · المطلوب ${bd(s.spareWays + '%')}`]);
+    $('#kpis').innerHTML = tiles.map(([k, v, sub, cls]) => `<div class="kpi${cls ? ' ' + cls : ''}"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${sub}</span></div>`).join('');
+    $('#sum-tag').textContent = state.meta.tag ? `— ${state.meta.tag}` : '';
+    const sysLabel = { '3P': '400/230V 3φ', '380': '380/220V 3φ', '1P': '230V 1φ' }[s.system];
+    $('#sum-basis').textContent = `${E.PROJECTS[s.project].ar} · ${sysLabel} · ${s.nec125 ? 'IEC + 125% للمستمر' : 'SBC 401 / IEC 60364'}`;
+
+    const phs = three ? ['L1', 'L2', 'L3'] : ['L1'];
+    const conn = three ? P.conn : { L1: P.totConn }, dem = three ? P.dem : { L1: P.totDem };
+    const mx = Math.max(1, ...phs.map(p => conn[p]));
+    $('#phase-bars').innerHTML = phs.map(p => `<div class="ph-row"><span class="ph-tag"><i class="dot ${p}"></i>${three ? p : 'L-N'}</span>
+      <span class="bar" role="img" aria-label="${p}: مطلوب ${fx(dem[p] / 1000, 1)} من ${fx(conn[p] / 1000, 1)} kVA"><i class="conn" style="width:${conn[p] / mx * 100}%"></i><i class="dem" style="width:${dem[p] / mx * 100}%"></i></span>
+      <span class="ph-val"><b>${fx(dem[p] / 1000, 1)}</b> / ${fx(conn[p] / 1000, 1)} kVA · ${fx(dem[p] / OUT.sys.VLN, 1)} A</span></div>`).join('');
+
+    const order = { crit: 0, warn: 1, info: 2 };
+    const W = OUT.warnings.slice().sort((a, b) => order[a.lvl] - order[b.lvl]);
+    const nCrit = W.filter(w => w.lvl === 'crit').length;
+    $('#warns').innerHTML = (W.some(w => w.lvl !== 'info') ? '' : `<div class="w good"><span>لا توجد مخالفات: القواطع والكابلات وهبوط الجهد والاتزان ضمن الحدود المحددة.</span></div>`)
+      + W.map(w => `<div class="w ${w.lvl}"><span>${esc(w.t)}</span></div>`).join('');
+    document.title = `جدول الأحمال التفاعلي${state.meta.tag ? ' — ' + state.meta.tag : ''}`;
+    $('#sum-h').dataset.crit = nCrit;
+  }
+  function renderBreakdown() {
+    const cats = Object.entries(OUT.cats).sort((a, b) => b[1].dem - a[1].dem);
+    const tot = OUT.panel.totDem || 1;
+    $('#cat-table').innerHTML = `<thead><tr><th>الفئة</th><th>الدوائر</th><th>الموصول kVA</th><th>DF الفعلي</th><th>المطلوب kVA</th><th>الحصة</th></tr></thead><tbody>`
+      + (cats.length ? cats.map(([k, c]) => `<tr><td>${esc(E.CATS[k].ar)}</td><td class="n">${c.n}</td><td class="n">${fx(c.conn / 1000, 2)}</td><td class="n">${fx(c.conn ? c.dem / c.conn : 0, 2)}</td><td class="n">${fx(c.dem / 1000, 2)}</td><td><div style="display:flex;align-items:center;gap:8px"><span class="minibar" style="flex:1"><i style="width:${c.dem / tot * 100}%"></i></span><span class="mono" style="font-size:12px;min-width:40px">${fx(c.dem / tot * 100, 0)}%</span></div></td></tr>`).join('')
+        : `<tr><td colspan="6" class="muted">لا توجد أحمال بعد.</td></tr>`)
+      + `</tbody><tfoot><tr><th>المجموع</th><th></th><th class="mono">${fx(OUT.panel.totConn / 1000, 2)}</th><th class="mono">${fx(OUT.panel.dfAll, 2)}</th><th class="mono">${fx(OUT.panel.totDem / 1000, 2)}</th><th></th></tr></tfoot>`;
+  }
+  function buildDF() {
+    $('#df-grid').innerHTML = Object.entries(E.CATS).filter(([k]) => k !== 'SP').map(([k, c]) => `<div class="field"><label for="df-${k}">${esc(c.ar)}${k === 'LF' ? ' <span class="muted">(1 / 0.75 / 0.6)</span>' : ''}</label><input id="df-${k}" type="number" min="0" max="1" step="0.05" data-df="${k}" value="${state.dfOverride[k] ?? ''}"></div>`).join('');
+    updateDFPlaceholders();
+  }
+  function updateDFPlaceholders() {
+    const proj = E.PROJECTS[state.settings.project] || E.PROJECTS.off;
+    $$('#df-grid [data-df]').forEach(el => { const k = el.dataset.df; el.placeholder = k === 'LF' ? 'تلقائي' : fx(proj.df[k] ?? 1, 2); });
+  }
+  function renderSettingNotes() {
+    const s = state.settings;
+    const a = E.corrections(s.final), b = E.corrections(s.feeder);
+    const t = c => `Ca ${fx(c.ca, 2)} × Cg ${fx(c.cg, 2)}${c.cs !== 1 ? ` × Cs ${fx(c.cs, 2)}` : ''} = ${fx(c.k, 3)}`;
+    $('#cf-final').textContent = t(a); $('#cf-feeder').textContent = t(b);
+    const P = OUT.panel;
+    $('#s-main option[value="auto"]').textContent = `تلقائي · ${s.mainOverride === 'auto' ? P.mainIn : E.BRK.find(v => v >= Math.max(P.design, 16))} A`;
+    const fdAuto = $('#d-cable option[value="auto"]');
+    fdAuto.textContent = s.feeder.override === 'auto' && !P.feeder.fail ? `تلقائي · ${E.fmtSize(P.feeder.size)} mm²` : 'تلقائي';
+  }
+
+  // ---------- persistence
+  let saveT = null;
+  function scheduleSave() { clearTimeout(saveT); saveT = setTimeout(() => ls.set(LS_CUR, JSON.stringify(state)), 500); }
+  async function initPlatform() {
+    for (let i = 0; i < 40 && !(window.claude && typeof window.claude.use === 'function'); i++) await new Promise(r => setTimeout(r, 100));
+    if (!(window.claude && typeof window.claude.use === 'function')) { STANDALONE = true; updateExportUI(); return; } // opened directly (e.g. from GitHub)
+    try { DL = await window.claude.use('downloads'); } catch (e) { DL = null; }
+    try {
+      const db = await window.claude.use('db'); const user = await window.claude.use('user');
+      if (db && user) { const id = await user.id(); if (id) STORE = { kind: 'db', col: db.collection('data/users/' + id) }; }
+    } catch (e) { STORE = { kind: 'local' }; }
+    updateExportUI();
+  }
+  function updateExportUI() {
+    const can = !!DL || STANDALONE;
+    ['#ex-xlsx', '#ex-print', '#ex-csv', '#ex-json'].forEach(s => { const b = $(s); b.disabled = !can; b.title = can ? '' : 'التنزيل غير متاح في هذا العرض. استخدم النسخ للصق في Excel.'; });
+    if (!window.XLSX) $('#ex-xlsx').title = 'مكتبة Excel لم تُحمّل. استخدم CSV.';
+  }
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), ms))]);
+  function savedLocal() { try { return JSON.parse(ls.get(LS_SAVED) || '{}') || {}; } catch (e) { return {}; } }
+  function panelBody() {
+    return { kind: 'panel', tag: state.meta.tag || 'بدون رمز', project: state.meta.project || '', type: state.settings.project, rows: state.rows.length, updated: Date.now(), state: JSON.parse(JSON.stringify(state)) };
+  }
+  async function saveCurrent() {
+    delete state.example;
+    const body = panelBody();
+    if (STORE.kind === 'db') {
+      try { await withTimeout(STORE.col.doc('panel_' + state.id).set(body), 10000); toast(`حُفظت اللوحة ${body.tag} في حسابك.`); return true; }
+      catch (e) { if (e && e.code === 'quota_exceeded') { toast('المساحة ممتلئة. احذف لوحات قديمة ثم أعد الحفظ.'); return false; } toast('تعذر الحفظ في الحساب، حُفظت في هذا المتصفح.'); }
+    }
+    const all = savedLocal(); all[state.id] = body;
+    if (ls.set(LS_SAVED, JSON.stringify(all))) { toast(`حُفظت اللوحة ${body.tag} في هذا المتصفح.`); return true; }
+    toast('لا يمكن الحفظ هنا. صدّر نسخة JSON للاحتفاظ باللوحة.'); return false;
+  }
+  async function listSaved() {
+    if (STORE.kind === 'db') {
+      const snap = await withTimeout(STORE.col.get(), 10000);
+      return snap.docs.filter(d => d.id.startsWith('panel_')).map(d => Object.assign({ _id: d.id }, d.data()));
+    }
+    return Object.entries(savedLocal()).map(([k, v]) => Object.assign({ _id: k }, v));
+  }
+  async function deleteSaved(item) {
+    if (STORE.kind === 'db') return withTimeout(STORE.col.doc(item._id).delete(), 10000);
+    const all = savedLocal(); delete all[item._id]; ls.set(LS_SAVED, JSON.stringify(all));
+  }
+  async function openSavedDialog() {
+    showModal('لوحاتي المحفوظة', `<p class="muted" style="margin:0 0 8px">${STORE.kind === 'db' ? 'محفوظة في حسابك وتظهر لك وحدك.' : 'محفوظة في هذا المتصفح فقط. للاحتفاظ بها خارجه صدّر نسخة JSON.'}</p><div class="saved" id="saved-list"><p class="muted">جارٍ التحميل…</p></div>`, [['إغلاق', closeModal]]);
+    let items;
+    try { items = await listSaved(); } catch (e) { $('#saved-list').innerHTML = `<p class="muted">تعذر الوصول إلى اللوحات المحفوظة الآن. حاول لاحقاً.</p>`; return; }
+    items.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    const box = $('#saved-list');
+    if (!items.length) { box.innerHTML = '<p class="muted">لا توجد لوحات محفوظة بعد. استخدم «حفظ اللوحة».</p>'; return; }
+    box.innerHTML = items.map((it, i) => `<div class="saved-item"><div><div class="t">${esc(it.tag)}${it.project ? ' — ' + esc(it.project) : ''}</div><div class="d">${esc((E.PROJECTS[it.type] || {}).ar || '')} · ${it.rows || 0} دائرة · ${it.updated ? new Date(it.updated).toLocaleString('ar-SA-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }) : ''}</div></div>
+      <div class="actions"><button type="button" class="btn sm primary" data-open="${i}">فتح</button><button type="button" class="btn sm" data-del="${i}">حذف</button></div></div>`).join('');
+    box.onclick = async ev => {
+      const o = ev.target.closest('[data-open]'), d = ev.target.closest('[data-del]');
+      if (o) { const it = items[+o.dataset.open]; setState(normalize(it.state)); closeModal(); hideBanner(); toast(`فُتحت اللوحة ${it.tag}.`); }
+      if (d) {
+        if (d.dataset.confirm !== '1') { d.dataset.confirm = '1'; d.textContent = 'تأكيد الحذف'; d.classList.add('primary'); return; }
+        const it = items[+d.dataset.del];
+        try { await deleteSaved(it); d.closest('.saved-item').remove(); toast(`حُذفت اللوحة ${it.tag}.`); } catch (e) { toast('تعذر الحذف الآن.'); }
+      }
+    };
+  }
+
+  // ---------- export
+  const sysLabel = () => ({ '3P': '3φ 4W + PE · 400/230V · 60Hz', '380': '3φ 4W + PE · 380/220V · 60Hz', '1P': '1φ 2W + PE · 230V · 60Hz' }[state.settings.system]);
+  const fileBase = () => (state.meta.tag || 'Panel').replace(/[^\w؀-ۿ-]+/g, '_');
+  const HEAD = ['الدائرة', 'الوصف', 'الفئة', 'العدد', 'القدرة للوحدة', 'الوحدة', 'PF', 'الأطوار', 'الطور', 'VA الكلي', 'L1 VA', 'L2 VA', 'L3 VA', 'Ib A', 'القاطع A', 'النوع', 'المنحنى', 'الأقطاب', 'RCD', 'الكابل', 'الطول m', 'ΔV % كلي', 'التشغيل', 'DF', 'الطلب VA'];
+  function rowCells(x) {
+    const sp = x.r.cat === 'SP', r = x.r, c = x.cable;
+    return [x.cct, r.desc, x.cat.ar, sp ? '' : r.qty, sp ? '' : r.val, sp ? '' : UNITS[r.unit], sp ? '' : r.pf, x.ph === 3 ? '3φ' : '1φ', x.ph === 3 ? 'L1-L2-L3' : x.phase,
+      sp ? 0 : Math.round(x.VA), Math.round(x.per.L1), Math.round(x.per.L2), Math.round(x.per.L3), sp ? 0 : E.r2(x.Ib, 1), x.In, x.dev, x.curve, x.poles === 3 ? '3P' : '1P+N', x.rcd ? '30mA' : '',
+      sp || !c || c.fail ? (sp ? '' : 'غير متاح') : c.label, sp ? '' : r.len, sp || !c || c.fail ? '' : E.r2(c.vdTot, 2), MODES[x.mode] || '', sp ? '' : E.r2(x.df, 2), sp ? 0 : Math.round(x.dem)];
+  }
+  function summaryPairs() {
+    const P = OUT.panel, s = state.settings;
+    return [
+      ['الحمل الموصول kVA', E.r2(P.totConn / 1000, 2)], ['الحمل المطلوب kVA', E.r2(P.totDem / 1000, 2)], ['DF الكلي', E.r2(P.dfAll, 2)],
+      ['Ib من أثقل طور A', E.r2(P.IbPanel, 1)], [`تيار التصميم مع احتياطي ${s.spare}% A`, E.r2(P.design, 1)],
+      ['القاطع الرئيسي', `${P.mainIn} A ${P.mainDev}`], ['Busbar', `${P.bus} A`], ['كابل التغذية', feederLabel(P)],
+      ['قدرة كابل التغذية بعد التصحيح A', P.feeder.fail ? '' : E.r2(P.feeder.Iz, 0)], [`هبوط جهد المغذي % (${s.feeder.len} m)`, P.feeder.fail ? '' : E.r2(P.feeder.vd, 2)],
+      ['عدم الاتزان (مطلوب / موصول) %', `${E.r2(P.imbDem, 1)} / ${E.r2(P.imbConn, 1)}`], ['تيار المحايد A', E.r2(P.IN, 1)],
+      ['المخارج المستخدمة', `${OUT.waysUsed} / ${OUT.waysTotal}`], ['تيار القصر عند اللوحة / Icu kA', `${s.isc} / ${s.icu}`]
+    ];
+  }
+  function buildAOA() {
+    const m = state.meta, s = state.settings, P = OUT.panel;
+    const aoa = [
+      ['جدول الأحمال — Panel Schedule'],
+      ['المشروع', m.project, 'اللوحة', m.tag, 'مغذاة من', m.fedFrom],
+      ['الموقع', m.location, 'النظام', sysLabel(), 'نوع المشروع', E.PROJECTS[s.project].ar],
+      ['أساس الحساب', s.nec125 ? 'SBC 401 / IEC 60364 + 125% للأحمال المستمرة' : 'SBC 401 / IEC 60364-5-52', 'تمديد الدوائر', `${s.final.method} · ${s.final.ins} · ${s.final.amb}°C · تجميع ${s.final.group}`, 'تمديد المغذي', `${s.feeder.method} · ${s.feeder.ins} · ${s.feeder.amb}°C · ${s.feeder.len} m`],
+      [], HEAD, ...OUT.rows.map(rowCells), [],
+      ['', 'الحمل الموصول VA', '', '', '', '', '', '', '', Math.round(P.totConn), Math.round(P.conn.L1), Math.round(P.conn.L2), Math.round(P.conn.L3)],
+      ['', 'الحمل المطلوب VA', '', '', '', '', '', '', '', Math.round(P.totDem), Math.round(P.dem.L1), Math.round(P.dem.L2), Math.round(P.dem.L3)],
+      ['', 'التيار المطلوب A', '', '', '', '', '', '', '', E.r2(P.IbPanel, 1), E.r2(P.Iph.L1, 1), E.r2(P.Iph.L2, 1), E.r2(P.Iph.L3, 1)],
+      [], ['الملخص'], ...summaryPairs(), [], ['الملاحظات'], ...OUT.warnings.map(w => [w.lvl === 'crit' ? 'حرج' : w.lvl === 'warn' ? 'تنبيه' : 'معلومة', w.t])
+    ];
+    return aoa;
+  }
+  async function saveFile(filename, data) {
+    if (!DL && STANDALONE) { // plain browser: ordinary download
+      try {
+        const url = URL.createObjectURL(new Blob([data]));
+        const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000); toast(`جُهّز الملف ${filename}.`);
+      } catch (e) { toast('تعذر تجهيز الملف في هذا المتصفح.'); }
+      return;
+    }
+    if (!DL) { toast('التنزيل غير متاح في هذا العرض. استخدم «نسخ الجدول للصق في Excel».'); return; }
+    try { const r = await DL.save({ filename, data }); if (r && r.status === 'saved') toast(`جُهّز الملف ${filename}.`); }
+    catch (e) {
+      const c = e && e.code;
+      toast(c === 'declined' ? 'أُلغي التنزيل.' : c === 'rate_limited' ? 'هناك طلب تنزيل مفتوح. انتظر لحظة ثم أعد المحاولة.' : c === 'extension_not_enabled' ? 'هذه الصيغة غير متاحة في هذا العرض.' : 'تعذر تجهيز الملف الآن.');
+    }
+  }
+  async function exportXLSX() {
+    if (!window.XLSX) { toast('مكتبة Excel لم تُحمّل. استخدم CSV أو النسخ للصق.'); return; }
+    const aoa = buildAOA();
+    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [8, 34, 16, 7, 10, 10, 6, 7, 9, 10, 9, 9, 9, 8, 9, 9, 8, 8, 7, 22, 8, 9, 10, 6, 10].map(w => ({ wch: w }));
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, (state.meta.tag || 'Panel').replace(/[\\/?*[\]:]/g, '-').slice(0, 30) || 'Panel');
+    wb.Workbook = { Views: [{ RTL: true }] };
+    const arr = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    await saveFile(fileBase() + '.xlsx', new Uint8Array(arr));
+  }
+  function csvCell(v) { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  async function exportCSV() { await saveFile(fileBase() + '.csv', '﻿' + buildAOA().map(r => r.map(csvCell).join(',')).join('\r\n')); }
+  async function exportJSON() { await saveFile(fileBase() + '.json', JSON.stringify({ app: 'panel-schedule', v: 1, state }, null, 2)); }
+  function tsv() { return buildAOA().map(r => r.map(v => String(v ?? '').replace(/[\t\n]/g, ' ')).join('\t')).join('\n'); }
+  async function copyTSV() {
+    const t = tsv();
+    try { await navigator.clipboard.writeText(t); toast('نُسخ الجدول. الصقه في خلية A1 في Excel.'); }
+    catch (e) { showModal('انسخ الجدول يدوياً', `<p class="muted" style="margin:0 0 8px">حدّد النص كله وانسخه، ثم الصقه في Excel.</p><textarea class="json" id="tsv-box" readonly aria-label="نص الجدول"></textarea>`, [['إغلاق', closeModal]]); $('#tsv-box').value = t; $('#tsv-box').select(); }
+  }
+  function printHTML() {
+    const m = state.meta, s = state.settings, P = OUT.panel;
+    const head = ['الدائرة', 'الوصف', 'العدد × القدرة', 'VA', 'L1', 'L2', 'L3', 'Ib A', 'القاطع', 'RCD', 'الكابل mm²', 'الطول m', 'ΔV %', 'DF', 'الطلب VA'];
+    const rows = OUT.rows.map(x => {
+      const sp = x.r.cat === 'SP', c = x.cable;
+      const qv = sp ? 'احتياطي' : `${x.r.qty} × ${x.r.val} ${UNITS[x.r.unit]}`;
+      return `<tr${sp ? ' class="sp"' : ''}><td>${esc(x.cct)}</td><td class="t">${esc(x.r.desc)}</td><td>${esc(qv)}</td><td>${sp ? '' : f0(x.VA)}</td><td>${x.per.L1 ? f0(x.per.L1) : ''}</td><td>${x.per.L2 ? f0(x.per.L2) : ''}</td><td>${x.per.L3 ? f0(x.per.L3) : ''}</td><td>${sp ? '' : fx(x.Ib, 1)}</td><td>${x.In}A ${esc(x.dev)} ${x.curve} ${x.poles === 3 ? '3P' : '1P+N'}</td><td>${x.rcd ? '30mA' : ''}</td><td>${sp ? '' : c && !c.fail ? esc(c.label) : '—'}</td><td>${sp ? '' : x.r.len}</td><td>${sp || !c || c.fail ? '' : fx(c.vdTot, 2)}</td><td>${sp ? '' : fx(x.df, 2)}</td><td>${sp ? '' : f0(x.dem)}</td></tr>`;
+    }).join('');
+    const sum = summaryPairs().map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
+    const warns = OUT.warnings.map(w => `<li>${esc(w.t)}</li>`).join('');
+    return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(m.tag || 'Panel')} — جدول الأحمال</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>@page{size:A3 landscape;margin:10mm}body{font-family:"IBM Plex Sans Arabic",Tahoma,Arial,sans-serif;font-size:11px;color:#111;margin:16px}
+h1{font-size:18px;margin:0 0 6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:3px 5px;text-align:center}
+td.t{text-align:right}thead th{background:#e9ecef}tr.sp td{color:#777;background:#f6f6f6}.meta td,.meta th{text-align:right}.meta th{background:#f2f2f2;width:12%}
+.foot td{font-weight:600;background:#f2f2f2}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}.sum th{text-align:right;background:#f2f2f2;width:55%}
+.btn{margin:8px 0;padding:6px 14px;font:inherit;cursor:pointer}@media print{.btn{display:none}}</style></head><body>
+<button class="btn" onclick="window.print()">طباعة</button>
+<h1>جدول الأحمال — ${esc(m.tag || '')}</h1>
+<table class="meta"><tr><th>المشروع</th><td>${esc(m.project)}</td><th>مغذاة من</th><td>${esc(m.fedFrom)}</td><th>الموقع</th><td>${esc(m.location)}</td></tr>
+<tr><th>النظام</th><td>${esc(sysLabel())}</td><th>نوع المشروع</th><td>${esc(E.PROJECTS[s.project].ar)}</td><th>أساس الحساب</th><td>${s.nec125 ? 'SBC 401 / IEC 60364 + 125% للمستمر' : 'SBC 401 / IEC 60364-5-52'}</td></tr></table>
+<br><table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody>
+<tfoot class="foot"><tr><td></td><td class="t">الحمل الموصول</td><td></td><td>${f0(P.totConn)}</td><td>${f0(P.conn.L1)}</td><td>${f0(P.conn.L2)}</td><td>${f0(P.conn.L3)}</td><td colspan="8"></td></tr>
+<tr><td></td><td class="t">الحمل المطلوب</td><td></td><td>${f0(P.totDem)}</td><td>${f0(P.dem.L1)}</td><td>${f0(P.dem.L2)}</td><td>${f0(P.dem.L3)}</td><td colspan="7"></td><td>${f0(P.totDem)}</td></tr>
+<tr><td></td><td class="t">التيار المطلوب A</td><td></td><td>${fx(P.IbPanel, 1)}</td><td>${fx(P.Iph.L1, 1)}</td><td>${fx(P.Iph.L2, 1)}</td><td>${fx(P.Iph.L3, 1)}</td><td colspan="8"></td></tr></tfoot></table>
+<div class="grid"><table class="sum">${sum}</table><div><b>ملاحظات التحقق</b><ul>${warns || '<li>لا توجد مخالفات ضمن الحدود المحددة.</li>'}</ul>
+<p>تمديد الدوائر: ${esc(E.METHODS[s.final.method])} · ${s.final.ins} · ${s.final.amb}°C · تجميع ${s.final.group}. تمديد المغذي: ${esc(E.METHODS[s.feeder.method])} · ${s.feeder.ins} · ${s.feeder.amb}°C.</p>
+<p>المعد: ____________ &nbsp; المراجع: ____________ &nbsp; التاريخ: ${new Date().toLocaleDateString('en-GB')}</p></div></div></body></html>`;
+  }
+  async function exportPrint() { await saveFile(fileBase() + '-print.html', printHTML()); }
+  function importFile(file) {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const o = JSON.parse(fr.result); const st = o.state || o;
+        if (!st || !Array.isArray(st.rows)) throw new Error('bad');
+        setState(normalize(st)); hideBanner(); toast(`استُوردت اللوحة ${state.meta.tag || ''}.`);
+      } catch (e) { toast('الملف ليس نسخة لوحة صالحة. اختر ملف JSON صدّرته هذه الأداة.'); }
+    };
+    fr.readAsText(file);
+  }
+
+  // ---------- modal / toast / banner
+  let lastFocus = null;
+  function showModal(title, html, buttons) {
+    lastFocus = document.activeElement;
+    $('#modal-title').textContent = title; $('#modal-body').innerHTML = html;
+    $('#modal-foot').innerHTML = ''; buttons.forEach(([t, fn, primary]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = t; b.onclick = fn; $('#modal-foot').appendChild(b); });
+    $('#modal').hidden = false; const f = $('#modal-foot button'); if (f) f.focus();
+  }
+  function closeModal() { $('#modal').hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+  let toastT = null;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3200); }
+  function hideBanner() { $('#example-banner').hidden = true; }
+
+  // ---------- wiring
+  function setState(s) { state = s; renderSettings(); renderLibrary(); buildDF(); renderTable(); update(); }
+  function newPanel() {
+    showModal('بدء لوحة جديدة؟', '<p style="margin:0">سيُمسح الجدول الحالي من الشاشة مع الإبقاء على نوع المشروع وظروف التركيب. احفظه أولاً إن كنت تحتاجه.</p>', [
+      ['حفظ ثم بدء جديد', async () => { if (await saveCurrent()) { closeModal(); start(); } }, true],
+      ['بدء جديد دون حفظ', () => { closeModal(); start(); }],
+      ['إلغاء', closeModal]
+    ]);
+    const start = () => { const st = newState(state.settings); st.settings.mainOverride = 'auto'; st.settings.feeder.override = 'auto'; setState(st); hideBanner(); $('#m-tag').focus(); };
+  }
+  function bind() {
+    document.addEventListener('input', e => { if (e.target.matches('input[data-s]:not([type=checkbox])')) onSetting(e.target); });
+    document.addEventListener('change', e => { if (e.target.matches('select[data-s], input[type=checkbox][data-s]')) onSetting(e.target); });
+    const body = $('#sched-body');
+    body.addEventListener('input', onTableInput); body.addEventListener('change', onTableChange); body.addEventListener('click', onTableClick);
+    $('#lib-chips').addEventListener('click', e => { const c = e.target.closest('[data-chip]'); if (!c) return; libCat = c.dataset.chip; $('#lib-search').value = ''; renderLibrary(); });
+    $('#lib-search').addEventListener('input', renderItems);
+    $('#lib-items').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) addRow(lib(b.dataset.add)); });
+    $('#df-grid').addEventListener('input', e => { const el = e.target; if (!el.dataset.df) return; const v = parseFloat(el.value); if (Number.isFinite(v)) state.dfOverride[el.dataset.df] = Math.max(0, Math.min(1, v)); else delete state.dfOverride[el.dataset.df]; update(); });
+    $('#btn-df-reset').onclick = () => { state.dfOverride = {}; buildDF(); update(); toast('أعيدت معاملات الطلب لقيم نوع المشروع.'); };
+    $('#btn-balance').onclick = () => { if (!sysThree()) { toast('اللوحة أحادية الطور.'); return; } const before = OUT.panel.imbDem; E.balance(state); delete state.example; renderTable(); update(); toast(`وُزعت الدوائر: عدم الاتزان ${fx(before, 1)}% ← ${fx(OUT.panel.imbDem, 1)}%`); };
+    $('#btn-custom').onclick = () => addRow({ id: 'custom', cat: 'DS', ar: 'حمل مخصص', unit: 'VA', val: 1000, pf: 0.9, ph: 1 });
+    $('#btn-sp1').onclick = () => addRow(lib('sp-1'));
+    $('#btn-sp3').onclick = () => addRow(lib('sp-3'));
+    $('#btn-new').onclick = newPanel;
+    $('#btn-save').onclick = saveCurrent;
+    $('#btn-open').onclick = openSavedDialog;
+    $('#btn-hide-banner').onclick = () => { hideBanner(); ls.set(LS_BANNER, '1'); };
+    const menu = $('#menu-export');
+    const closeMenu = () => menu.removeAttribute('open');
+    $('#ex-xlsx').onclick = () => { closeMenu(); exportXLSX(); };
+    $('#ex-csv').onclick = () => { closeMenu(); exportCSV(); };
+    $('#ex-print').onclick = () => { closeMenu(); exportPrint(); };
+    $('#ex-json').onclick = () => { closeMenu(); exportJSON(); };
+    $('#ex-copy').onclick = () => { closeMenu(); copyTSV(); };
+    $('#ex-import').onclick = () => { closeMenu(); $('#file-import').click(); };
+    $('#file-import').onchange = e => { const f = e.target.files && e.target.files[0]; if (f) importFile(f); e.target.value = ''; };
+    document.addEventListener('click', e => { if (menu.open && !menu.contains(e.target)) closeMenu(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#modal').hidden) closeModal(); else closeMenu(); } });
+    $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+  }
+
+  // ---------- init
+  fillStaticOptions();
+  bind();
+  let initial = null;
+  try { const raw = ls.get(LS_CUR); if (raw) { const o = JSON.parse(raw); if (o && Array.isArray(o.rows)) initial = normalize(o); } } catch (e) { initial = null; }
+  setState(initial || exampleState());
+  if (!state.example || ls.get(LS_BANNER) === '1') hideBanner();
+  updateExportUI();
+  initPlatform();
+})();
+
+</script>
+</body>
+</html>

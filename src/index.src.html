@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>جدول الأحمال التفاعلي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a working sheet — settings, then the verdict strip, then the load library feeding the schedule grid. Copper accent = the conductor. */
+:root{
+  --bg:#f2f4f5; --surface:#ffffff; --surface-2:#eef1f3; --ink:#15212a; --muted:#5b6a75; --line:#d5dce1;
+  --accent:#b1592a; --accent-ink:#ffffff; --accent-soft:#f6e6da;
+  --good:#1d7548; --good-soft:#e1f1e8; --warn:#9a6300; --warn-soft:#fbefd6; --crit:#b3261e; --crit-soft:#f8e0dd; --info:#2a5b87; --info-soft:#e2ecf5;
+  --l1:#8a5634; --l2:#1b1b1d; --l3:#8d949b;
+  --font-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --radius:10px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1418; --surface:#151e24; --surface-2:#1b262e; --ink:#e4ebef; --muted:#94a4af; --line:#2b3842;
+    --accent:#e08b55; --accent-ink:#1b0f07; --accent-soft:#3a2516;
+    --good:#61c393; --good-soft:#14301f; --warn:#e2b04c; --warn-soft:#382a0c; --crit:#f2867c; --crit-soft:#3e1714; --info:#86b5e0; --info-soft:#13293c;
+    --l1:#c98a62; --l2:#e4ebef; --l3:#9aa3ab; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --surface:#151e24; --surface-2:#1b262e; --ink:#e4ebef; --muted:#94a4af; --line:#2b3842;
+  --accent:#e08b55; --accent-ink:#1b0f07; --accent-soft:#3a2516;
+  --good:#61c393; --good-soft:#14301f; --warn:#e2b04c; --warn-soft:#382a0c; --crit:#f2867c; --crit-soft:#3e1714; --info:#86b5e0; --info-soft:#13293c;
+  --l1:#c98a62; --l2:#e4ebef; --l3:#9aa3ab; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:14px; line-height:1.55}
+.num,.mono{font-family:var(--font-num); font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0; text-wrap:balance; line-height:1.3}
+h1{font-size:22px; font-weight:700}
+h2{font-size:16px; font-weight:700}
+h3{font-size:13px; font-weight:600; color:var(--muted)}
+a{color:var(--accent)}
+button,select,input{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important; animation:none!important}}
+
+.wrap{max-width:1480px; margin:0 auto; padding:16px; display:grid; gap:16px}
+.topbar{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.brand{display:flex; flex-direction:column; gap:2px}
+.brand p{margin:0; color:var(--muted); font-size:13px}
+.actions{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.btn{display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:13px; font-weight:500; white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.sm{height:28px; padding:0 9px; font-size:12px}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+.menu{position:relative}
+.menu > summary{list-style:none}
+.menu > summary::-webkit-details-marker{display:none}
+.menu-pop{position:absolute; inset-inline-end:0; top:40px; z-index:30; min-width:240px; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(0,0,0,.14); padding:6px; display:grid; gap:2px}
+.menu-pop button{all:unset; cursor:pointer; padding:8px 10px; border-radius:6px; font-size:13px; display:flex; justify-content:space-between; gap:12px}
+.menu-pop button:hover,.menu-pop button:focus-visible{background:var(--surface-2)}
+.menu-pop button[disabled]{opacity:.45; cursor:not-allowed}
+.menu-pop small{color:var(--muted)}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; display:grid; gap:12px; align-content:start}
+.card-head{display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px}
+.card-head p{margin:0; color:var(--muted); font-size:12.5px}
+.grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+@media (max-width:980px){.grid2{grid-template-columns:1fr}}
+.fields{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px 12px}
+.field{display:grid; gap:4px; align-content:start}
+.field label{font-size:12px; color:var(--muted); font-weight:500}
+.field input,.field select{height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:0 10px; min-width:0}
+.field input[type=number]{font-family:var(--font-num)}
+.field.wide{grid-column:span 2}
+.check{display:flex; align-items:center; gap:8px; font-size:13px}
+.check input{width:16px; height:16px; accent-color:var(--accent)}
+.subhead{font-size:12px; font-weight:600; color:var(--ink); padding-top:4px; border-top:1px dashed var(--line); grid-column:1/-1; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap}
+.subhead span{color:var(--muted); font-weight:500}
+.banner{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-radius:var(--radius); background:var(--accent-soft); border:1px solid color-mix(in srgb,var(--accent) 35%,transparent); font-size:13px}
+.banner[hidden]{display:none}
+
+/* Summary */
+.kpis{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px}
+.kpi{border:1px solid var(--line); border-radius:9px; padding:10px 12px; display:grid; gap:2px; background:var(--surface)}
+.kpi .k{font-size:12px; color:var(--muted)}
+.kpi .v{font-size:20px; font-weight:600; font-family:var(--font-num); font-variant-numeric:tabular-nums; direction:ltr; text-align:right}
+.kpi .v small{font-size:12px; color:var(--muted); font-weight:500}
+.kpi .s{font-size:12px; color:var(--muted)}
+.kpi.main{border-color:var(--accent); background:var(--accent-soft)}
+.pill{display:inline-flex; align-items:center; gap:4px; padding:1px 8px; border-radius:999px; font-size:11.5px; font-weight:600}
+.pill.good{background:var(--good-soft); color:var(--good)} .pill.warn{background:var(--warn-soft); color:var(--warn)} .pill.crit{background:var(--crit-soft); color:var(--crit)} .pill.info{background:var(--info-soft); color:var(--info)}
+.sumgrid{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:16px}
+@media (max-width:980px){.sumgrid{grid-template-columns:1fr}}
+.phases{display:grid; gap:10px; align-content:start}
+bdi{white-space:nowrap}
+.ph-row{display:grid; grid-template-columns:44px minmax(0,1fr) 200px; align-items:center; gap:10px}
+.ph-tag{display:flex; align-items:center; gap:6px; font-weight:600; font-family:var(--font-num)}
+.dot{width:10px; height:10px; border-radius:50%; display:inline-block; flex:none}
+.dot.L1{background:var(--l1)} .dot.L2{background:var(--l2)} .dot.L3{background:var(--l3)} .dot.P3{background:conic-gradient(var(--l1) 0 33%,var(--l2) 0 66%,var(--l3) 0)}
+.bar{position:relative; height:14px; background:var(--surface-2); border-radius:7px; overflow:hidden}
+.bar i{position:absolute; inset-block:0; inset-inline-start:0; border-radius:7px}
+.bar .conn{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.bar .dem{background:var(--accent)}
+.ph-val{font-family:var(--font-num); font-size:12.5px; direction:ltr; text-align:right; color:var(--muted)}
+.ph-val b{color:var(--ink); font-weight:600}
+.legend{display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--muted)}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.sw{width:14px; height:8px; border-radius:4px; display:inline-block}
+.warns{display:grid; gap:6px; max-height:280px; overflow:auto; padding-inline-end:2px}
+.w{display:grid; grid-template-columns:4px minmax(0,1fr); gap:10px; padding:8px 10px; border-radius:8px; background:var(--surface-2); font-size:13px}
+.w::before{content:""; border-radius:2px}
+.w.crit::before{background:var(--crit)} .w.warn::before{background:var(--warn)} .w.info::before{background:var(--info)} .w.good::before{background:var(--good)}
+
+/* Library */
+.lib-tools{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{height:30px; padding:0 12px; border-radius:999px; border:1px solid var(--line); background:var(--surface); cursor:pointer; font-size:12.5px}
+.chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.chip.rec{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.search{height:32px; border:1px solid var(--line); border-radius:8px; padding:0 10px; background:var(--surface); min-width:220px; flex:1 1 220px; max-width:340px}
+.items{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px; max-height:236px; overflow:auto; padding:2px}
+.item{all:unset; cursor:pointer; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 8px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface)}
+.item:hover,.item:focus-visible{border-color:var(--accent); background:var(--accent-soft)}
+.item .n{font-size:13px; font-weight:500}
+.item .m{font-size:11.5px; color:var(--muted); font-family:var(--font-num); direction:ltr; text-align:right}
+.item .add{grid-row:span 2; align-self:center; font-size:18px; color:var(--accent); font-weight:600}
+
+/* Schedule table */
+.tbl-tools{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between}
+.tbl-tools .g{display:flex; flex-wrap:wrap; gap:8px}
+.tbl-wrap{overflow:auto; border:1px solid var(--line); border-radius:var(--radius); max-height:70vh; background:var(--surface)}
+table.sched{border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:12.5px}
+.sched th,.sched td{border-bottom:1px solid var(--line); padding:5px 6px; vertical-align:middle; background:var(--surface); white-space:nowrap}
+.sched thead th{position:sticky; top:0; z-index:3; background:var(--surface-2); font-weight:600; font-size:11.5px; color:var(--muted); text-align:center; border-bottom:1px solid var(--line)}
+.sched thead th.grp{top:0}
+.sched td.c0,.sched th.c0{position:sticky; right:0; z-index:2; min-width:72px}
+.sched td.c1,.sched th.c1{position:sticky; right:72px; z-index:2; min-width:230px; border-inline-end:1px solid var(--line)}
+.sched thead th.c0,.sched thead th.c1{z-index:4}
+.sched tbody tr:hover td{background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.sched input,.sched select{height:28px; border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:0 6px; font-size:12.5px; min-width:0}
+.sched input[type=number]{font-family:var(--font-num); width:66px; direction:ltr; text-align:right}
+.sched input.desc{width:220px}
+.sched input.w44{width:62px}
+.sched select{padding:0 4px}
+.sched input[type=checkbox]{width:16px; height:16px; accent-color:var(--accent)}
+.sched .n{font-family:var(--font-num); font-variant-numeric:tabular-nums; text-align:left; direction:ltr}
+.sched .sub{display:block; font-size:10.5px; color:var(--muted); font-family:var(--font-num); direction:ltr; text-align:right; margin-top:2px}
+.sched td.cct{font-family:var(--font-num); font-weight:600}
+.cct-in{display:flex; align-items:center; gap:6px}
+.sched .ph1{color:var(--l1)} .sched .ph2{color:var(--l2)} .sched .ph3{color:var(--l3)}
+.sched td.phc{color:var(--muted)}
+.sched td.phc.on{color:var(--ink); font-weight:600}
+.sched tr.spare td{background:var(--surface-2)}
+.sched tr.spare input.desc{background:transparent}
+.sched tr.mode-fire td.c1, .sched tr.mode-standby td.c1{box-shadow:inset -3px 0 0 var(--info)}
+.vd{display:inline-block; min-width:52px; text-align:center; padding:1px 6px; border-radius:6px; font-family:var(--font-num); font-weight:600}
+.vd.ok{background:var(--good-soft); color:var(--good)} .vd.bad{background:var(--crit-soft); color:var(--crit)} .vd.na{color:var(--muted)}
+.rowact{display:flex; gap:2px}
+.icon{all:unset; cursor:pointer; width:24px; height:24px; display:grid; place-items:center; border-radius:6px; color:var(--muted); font-size:13px}
+.icon:hover,.icon:focus-visible{background:var(--surface-2); color:var(--ink)}
+.icon.del:hover{color:var(--crit)}
+.flag{color:var(--crit); font-weight:700}
+.sched tfoot td{background:var(--surface-2); font-weight:600; border-top:1px solid var(--line)}
+.sched tfoot td.lbl{text-align:right}
+.empty{padding:28px; text-align:center; color:var(--muted)}
+
+/* Breakdown */
+table.plain{border-collapse:collapse; width:100%; font-size:13px}
+.plain th,.plain td{padding:7px 8px; border-bottom:1px solid var(--line); text-align:right}
+.plain th{font-size:12px; color:var(--muted); font-weight:600}
+.plain td.n{font-family:var(--font-num); font-variant-numeric:tabular-nums; direction:ltr; text-align:left}
+.minibar{height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden; min-width:80px}
+.minibar i{display:block; height:100%; background:var(--accent)}
+.dfgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px 12px}
+.dfgrid .field{grid-template-columns:minmax(0,1fr) 76px; align-items:center}
+.dfgrid input{height:30px; border:1px solid var(--line); border-radius:6px; padding:0 8px; font-family:var(--font-num); background:var(--surface); direction:ltr; text-align:right}
+.notes{font-size:12.5px; color:var(--muted); display:grid; gap:6px}
+.notes p{margin:0; max-width:110ch}
+
+/* Modal + toast */
+.modal{position:fixed; inset:0; background:rgba(10,14,18,.45); display:grid; place-items:center; z-index:50; padding:16px}
+.modal[hidden]{display:none}
+.dialog{background:var(--surface); border:1px solid var(--line); border-radius:12px; width:min(620px,100%); max-height:80vh; overflow:auto; padding:18px; display:grid; gap:12px}
+.dialog .foot{display:flex; justify-content:flex-start; gap:8px; flex-wrap:wrap}
+.saved{display:grid; gap:6px}
+.saved-item{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:8px}
+.saved-item .t{font-weight:600}
+.saved-item .d{font-size:12px; color:var(--muted)}
+.toast{position:fixed; bottom:16px; inset-inline-start:16px; z-index:60; background:var(--ink); color:var(--bg); padding:10px 14px; border-radius:8px; font-size:13px; max-width:420px; box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.toast[hidden]{display:none}
+.muted{color:var(--muted)}
+.ltr{direction:ltr; unicode-bidi:isolate}
+textarea.json{width:100%; min-height:160px; font-family:var(--font-num); font-size:12px; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--surface-2); color:var(--ink); direction:ltr}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>جدول الأحمال التفاعلي</h1>
+      <p>Panel Schedule — اختيار القواطع والكابلات القياسية تلقائياً على أساس SBC 401 / IEC 60364-5-52</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-new" type="button">لوحة جديدة</button>
+      <button class="btn" id="btn-save" type="button">حفظ اللوحة</button>
+      <button class="btn" id="btn-open" type="button">لوحاتي</button>
+      <details class="menu" id="menu-export">
+        <summary class="btn primary" role="button">تصدير</summary>
+        <div class="menu-pop" role="menu">
+          <button type="button" role="menuitem" id="ex-xlsx">ملف Excel <small>.xlsx</small></button>
+          <button type="button" role="menuitem" id="ex-print">ورقة طباعة <small>.html</small></button>
+          <button type="button" role="menuitem" id="ex-csv">جدول CSV <small>.csv</small></button>
+          <button type="button" role="menuitem" id="ex-json">نسخة احتياطية <small>.json</small></button>
+          <button type="button" role="menuitem" id="ex-copy">نسخ الجدول للصق في Excel</button>
+          <button type="button" role="menuitem" id="ex-import">استيراد لوحة من ملف JSON</button>
+        </div>
+      </details>
+      <input type="file" id="file-import" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="banner" id="example-banner">
+    <span>تعرض الأداة مثالاً جاهزاً: لوحة دور مكاتب <b>DB-1F</b> من المرجع (400 m²، 6 وحدات تكييف). عدّل عليه أو ابدأ لوحة جديدة.</span>
+    <button class="btn sm" type="button" id="btn-hide-banner">إخفاء</button>
+  </div>
+
+  <section class="grid2" aria-label="الإعدادات">
+    <div class="card">
+      <div class="card-head"><h2>بيانات اللوحة والمشروع</h2><p>نوع المشروع يحدد معاملات الطلب والأحمال المقترحة</p></div>
+      <div class="fields">
+        <div class="field wide"><label for="m-project">اسم المشروع</label><input id="m-project" data-s="meta.project" type="text"></div>
+        <div class="field"><label for="s-project">نوع المشروع</label><select id="s-project" data-s="settings.project"></select></div>
+        <div class="field"><label for="m-tag">رمز اللوحة</label><input id="m-tag" data-s="meta.tag" type="text"></div>
+        <div class="field"><label for="m-fed">مغذاة من</label><input id="m-fed" data-s="meta.fedFrom" type="text"></div>
+        <div class="field"><label for="m-loc">الموقع</label><input id="m-loc" data-s="meta.location" type="text"></div>
+        <div class="field"><label for="s-system">النظام</label>
+          <select id="s-system" data-s="settings.system">
+            <option value="3P">3φ 4W + PE · 400/230V · 60Hz</option>
+            <option value="380">3φ 4W + PE · 380/220V (شبكة قديمة)</option>
+            <option value="1P">1φ 2W + PE · 230V</option>
+          </select></div>
+        <div class="field"><label for="s-ways" id="ways-label">حجم اللوحة (مخارج TPN)</label><select id="s-ways" data-s="settings.ways" data-type="num"></select></div>
+        <div class="field"><label for="s-spare">احتياطي السعة %</label><input id="s-spare" data-s="settings.spare" data-type="num" type="number" min="0" max="100" step="5"></div>
+        <div class="field"><label for="s-spareways">مخارج فارغة مطلوبة %</label><input id="s-spareways" data-s="settings.spareWays" data-type="num" type="number" min="0" max="100" step="5"></div>
+        <div class="field"><label for="s-main">القاطع الرئيسي</label><select id="s-main" data-s="settings.mainOverride"></select></div>
+        <div class="field"><label for="s-isc">تيار القصر عند اللوحة kA</label><input id="s-isc" data-s="settings.isc" data-type="num" type="number" min="0" step="0.5"></div>
+        <div class="field"><label for="s-icu">سعة قطع القواطع Icu kA</label><input id="s-icu" data-s="settings.icu" data-type="num" type="number" min="0" step="0.5"></div>
+        <label class="check field wide" for="s-nec"><input id="s-nec" type="checkbox" data-s="settings.nec125" data-type="bool"> تطبيق 125% على الأحمال المستمرة (ممارسة NEC أو مواصفات العميل)</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>ظروف التركيب والحدود</h2><p>تحدد مقاطع الكابلات بعد التصحيح</p></div>
+      <div class="fields">
+        <div class="subhead">الدوائر النهائية <span id="cf-final" class="mono"></span></div>
+        <div class="field wide"><label for="f-method">طريقة التمديد</label><select id="f-method" data-s="settings.final.method"></select></div>
+        <div class="field"><label for="f-ins">العزل</label><select id="f-ins" data-s="settings.final.ins"><option value="PVC">PVC — 70°C</option><option value="XLPE">XLPE — 90°C</option></select></div>
+        <div class="field"><label for="f-amb" id="f-amb-l">حرارة المحيط °C</label><input id="f-amb" data-s="settings.final.amb" data-type="num" type="number" step="5" min="10" max="60"></div>
+        <div class="field"><label for="f-group">دوائر متجمعة معاً</label><input id="f-group" data-s="settings.final.group" data-type="num" type="number" min="1" max="20" step="1"></div>
+        <div class="field"><label for="f-min">أصغر مقطع mm²</label><select id="f-min" data-s="settings.minSize" data-type="num"><option value="1.5">1.5</option><option value="2.5">2.5</option><option value="4">4</option></select></div>
+        <label class="check field wide" for="f-dist"><input id="f-dist" type="checkbox" data-s="settings.distributed" data-type="bool"> حمل الإنارة والمقابس موزع على طول الدائرة (هبوط الجهد على نصف الطول)</label>
+
+        <div class="subhead">كابل تغذية اللوحة <span id="cf-feeder" class="mono"></span></div>
+        <div class="field wide"><label for="d-method">طريقة التمديد</label><select id="d-method" data-s="settings.feeder.method"></select></div>
+        <div class="field"><label for="d-ins">العزل</label><select id="d-ins" data-s="settings.feeder.ins"><option value="PVC">PVC — 70°C</option><option value="XLPE">XLPE — 90°C</option></select></div>
+        <div class="field"><label for="d-amb" id="d-amb-l">حرارة المحيط °C</label><input id="d-amb" data-s="settings.feeder.amb" data-type="num" type="number" step="5" min="10" max="60"></div>
+        <div class="field"><label for="d-group">كابلات متجمعة معاً</label><input id="d-group" data-s="settings.feeder.group" data-type="num" type="number" min="1" max="9" step="1"></div>
+        <div class="field"><label for="d-len">طول المغذي m</label><input id="d-len" data-s="settings.feeder.len" data-type="num" type="number" min="0" step="5"></div>
+        <div class="field"><label for="d-cable">مقطع المغذي</label><select id="d-cable" data-s="settings.feeder.override"></select></div>
+        <div class="field"><label for="d-soil">مقاومة التربة K·m/W</label><input id="d-soil" data-s="settings.feeder.soil" data-type="num" type="number" min="0.5" max="3" step="0.5"></div>
+
+        <div class="subhead">الحدود</div>
+        <div class="field"><label for="l-supply">مصدر التغذية</label><select id="l-supply" data-s="settings.supply"><option value="public">شبكة SEC للجهد المنخفض</option><option value="private">محول خاص بالمشروع</option></select></div>
+        <div class="field"><label for="l-vdl">هبوط جهد الإنارة %</label><input id="l-vdl" data-s="settings.vdLight" data-type="num" type="number" min="1" max="10" step="0.5"></div>
+        <div class="field"><label for="l-vdo">هبوط جهد الأحمال الأخرى %</label><input id="l-vdo" data-s="settings.vdOther" data-type="num" type="number" min="1" max="10" step="0.5"></div>
+        <div class="field"><label for="l-vdf">حد هبوط المغذي %</label><input id="l-vdf" data-s="settings.feederVd" data-type="num" type="number" min="0.5" max="5" step="0.5"></div>
+        <div class="field"><label for="l-imb">حد عدم الاتزان %</label><input id="l-imb" data-s="settings.imbLimit" data-type="num" type="number" min="1" max="30" step="1"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="sum-h">
+    <div class="card-head"><h2 id="sum-h">ملخص اللوحة <span id="sum-tag" class="muted"></span></h2><p id="sum-basis"></p></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="sumgrid">
+      <div class="phases">
+        <h3>توزيع الأحمال على الأطوار</h3>
+        <div id="phase-bars" class="phases"></div>
+        <div class="legend"><span><i class="sw" style="background:var(--accent)"></i>الحمل المطلوب</span><span><i class="sw" style="background:color-mix(in srgb,var(--accent) 22%,transparent)"></i>الحمل الموصول</span><span><i class="dot L1"></i>L1 بني</span><span><i class="dot L2"></i>L2 أسود</span><span><i class="dot L3"></i>L3 رمادي</span><span>(IEC 60445)</span></div>
+      </div>
+      <div class="phases">
+        <h3>ملاحظات التحقق</h3>
+        <div class="warns" id="warns"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="lib-h">
+    <div class="card-head"><h2 id="lib-h">مكتبة الأحمال</h2><p>اضغط على أي حمل لإضافته دائرةً جديدة على الطور الأخف. القيم نموذجية، عدّلها من بيانات المعدة المعتمدة.</p></div>
+    <div class="lib-tools">
+      <input class="search" id="lib-search" type="search" placeholder="ابحث: سبليت، مضخة، كشاف…" aria-label="بحث في المكتبة">
+      <div class="chips" id="lib-chips" role="toolbar" aria-label="فئات الأحمال"></div>
+    </div>
+    <div class="items" id="lib-items"></div>
+  </section>
+
+  <section class="card" aria-labelledby="tbl-h">
+    <div class="tbl-tools">
+      <div><h2 id="tbl-h">جدول الأحمال</h2></div>
+      <div class="g">
+        <button class="btn" type="button" id="btn-balance">موازنة الأطوار تلقائياً</button>
+        <button class="btn" type="button" id="btn-custom">إضافة حمل مخصص</button>
+        <button class="btn" type="button" id="btn-sp1">+ احتياطي أحادي</button>
+        <button class="btn" type="button" id="btn-sp3">+ احتياطي ثلاثي</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="sched" id="sched">
+        <thead>
+          <tr>
+            <th class="c0">الدائرة</th><th class="c1">الوصف</th><th>الفئة</th><th>العدد</th><th>القدرة للوحدة</th><th>PF</th><th>η / EER</th><th>الأطوار</th><th>الطور</th>
+            <th>VA الكلي</th><th><span class="ph1">●</span> L1</th><th><span class="ph2">●</span> L2</th><th><span class="ph3">●</span> L3</th><th>Ib A</th>
+            <th>القاطع</th><th>المنحنى</th><th>RCD</th><th>الطول m</th><th>الكابل</th><th>ΔV % كلي</th><th>التشغيل</th><th>DF</th><th>الطلب VA</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="sched-body"></tbody>
+        <tfoot id="sched-foot"></tfoot>
+      </table>
+    </div>
+    <p class="muted" style="margin:0;font-size:12px">ΔV % كلي = هبوط المغذي حتى اللوحة + هبوط الدائرة. القاطع التلقائي ≥ Ib (× 1.25 للمحركات والتكييف والشواحن)، والكابل أصغر مقطع يحقق In ≤ Iz بعد التصحيح وحد هبوط الجهد. الدوائر المظللة بخط أزرق احتياطية أو تعمل في وضع الحريق فقط.</p>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <div class="card-head"><h2>الأحمال حسب الفئة</h2><p>المساهمة في الحمل المطلوب</p></div>
+      <div style="overflow-x:auto"><table class="plain" id="cat-table"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>معاملات الطلب DF</h2><button class="btn sm" type="button" id="btn-df-reset">إعادة قيم نوع المشروع</button></div>
+      <p class="muted" style="margin:0;font-size:12.5px">قيم استرشادية لنوع المشروع، يعتمدها الاستشاري. SBC 401 يسمح بالتباين دون جدول ثابت. المصاعد تُحسب تلقائياً: أكبر مصعد 1، الثاني 0.75، الباقي 0.6. اترك الخانة فارغة لاستخدام القيمة الافتراضية، أو أدخل DF لكل دائرة في الجدول.</p>
+      <div class="dfgrid" id="df-grid"></div>
+    </div>
+  </section>
+
+  <section class="card notes" aria-label="الأساس والملاحظات">
+    <h2 style="color:var(--ink)">أساس الحساب</h2>
+    <p>قدرات الكابلات النحاسية ومعاملات تصحيح الحرارة والتجميع والتربة من IEC 60364-5-52:2009 (الملحق B)، ومطابَقة مع الجداول B.52.2 وB.52.4 وB.52.5 وB.52.12 وB.52.14 حتى B.52.19. لم تتوفر للمطابقة الجداول B.52.3 (XLPE بموصلين محملين) وB.52.10 (PVC على حامل كابلات)؛ وفي طريقة D2 تُستخدم قيم الثلاثة موصلات لكابلات XLPE الأحادية الطور، وهي أكثر تحفظاً. هبوط الجهد حسب الملحق G بمقاومية 1.25 × مقاومية 20°C ومفاعلة 0.08 mΩ/m، والحدود الافتراضية 3% للإنارة و5% لغيرها من شبكة الجهد المنخفض، و6% و8% من محول خاص. ظروف SEC المرجعية: 40°C داخل المباني غير المكيفة، 55°C للهواء الخارجي، 40°C للتربة، ومقاومة تربة 2.0 K·m/W.</p>
+    <p>القواطع من التدرج القياسي (IEC 60898 / 60947-2): MCB حتى 63A، وMCCB حتى 1600A، وACB فوقها. الموصل الأرضي حسب IEC 60364-5-54: نفس المقطع حتى 16 mm²، و16 mm² حتى 35، ثم نصف المقطع.</p>
+    <p>ما يجب أن تراجعه بنفسك: قيم MCA وMOCP من لوحة وحدات التكييف المعتمدة، تيار البدء للمحركات الكبيرة، سعة القطع والتمييز من دراسة تيار القصر، وكتالوج الكابل الفعلي إذا اختلف عن جداول IEC. الأداة لا تحسب كابلات الألمنيوم.</p>
+  </section>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <div class="foot" id="modal-foot"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/*__ENGINE__*/
+</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>
